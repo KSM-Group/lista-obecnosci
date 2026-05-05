@@ -125,6 +125,93 @@ button.tb.active { background:var(--accent); color:#fff; border-color:var(--acce
 /* Special roles */
 .role-kierownik { color:var(--accent); font-weight:700; }
 .role-koordynator { color:var(--teal); font-weight:600; }
+
+/* ── Themes ── */
+body.theme-dark {
+  --bg: #0f1624; --surface: #161c2d; --surface2: #1e2538;
+  --border: #1e2d45; --border2: #253550;
+  --accent: #00e5ff; --accent2: #00b8d4; --accent-lt: rgba(0,229,255,0.08);
+  --text: #e2e8f0; --text2: #94a3b8; --text3: #475569;
+  --shadow: rgba(0,0,0,0.4);
+  --green: #34d399; --red: #f87171; --blue: #60a5fa;
+  --orange: #fbbf24; --purple: #a78bfa; --teal: #2dd4bf;
+}
+body.theme-dark #auth-screen { background: linear-gradient(145deg,#0a1220,#0f1624,#0d1e30); }
+body.theme-dark .auth-card { background: #161c2d; border: 1px solid #1e2d45; }
+body.theme-dark .topbar { background: #161c2d; border-color: #1e2d45; }
+body.theme-dark .month-card { background: #161c2d; border-color: #1e2d45; }
+body.theme-dark .month-card-header { background: linear-gradient(90deg,#0a1628,#0d2040); }
+body.theme-dark .group-section-header { background: #1e2538; }
+body.theme-dark .group-section-header:hover { background: rgba(0,229,255,0.06); }
+body.theme-dark .group-section { border-color: #1e2d45; }
+body.theme-dark .emp-row { border-color: #1e2d45; }
+body.theme-dark .emp-row:hover { background: rgba(0,229,255,0.04); }
+body.theme-dark .emp-name { color: #e2e8f0; }
+body.theme-dark .emp-role { background: #1e2538; border-color: #253550; color: #94a3b8; }
+body.theme-dark .kpi-card { background: #161c2d; border-color: #1e2d45; }
+body.theme-dark .kpi-value { color: #00e5ff; }
+body.theme-dark .chart-card { background: #161c2d; border-color: #1e2d45; }
+body.theme-dark .absence-card { border-color: #1e2d45; }
+body.theme-dark .absence-table th { background: #1e2538; color: #64748b; border-color: #253550; }
+body.theme-dark .absence-table td { border-color: #1e2d45; color: #e2e8f0; }
+body.theme-dark .absence-table tr:hover td { background: rgba(0,229,255,0.04); }
+body.theme-dark .user-info { background: rgba(255,255,255,0.06); border-color: #1e2d45; }
+body.theme-dark button.tb { background: rgba(255,255,255,0.04); border-color: #1e2d45; color: #94a3b8; }
+body.theme-dark button.tb:hover { background: rgba(0,229,255,0.08); color: #00e5ff; border-color: rgba(0,229,255,0.3); }
+body.theme-dark .back-btn { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.2); color: #00e5ff; }
+body.theme-dark .section-title { color: #475569; }
+body.theme-dark .toast { background: #1e2538; }
+
+body.theme-brutalist {
+  --bg: #fffbf5; --surface: #fff; --surface2: #f5f5f5;
+  --border: #1a1a1a; --border2: #1a1a1a;
+  --accent: #ff6b2b; --accent2: #e55a1e; --accent-lt: rgba(255,107,43,0.08);
+  --text: #1a1a1a; --text2: #555; --text3: #999; --shadow: rgba(0,0,0,0.2);
+}
+body.theme-brutalist .topbar { border: 2px solid #1a1a1a; border-radius: 0; box-shadow: 4px 4px 0 #1a1a1a; }
+body.theme-brutalist .month-card { border: 2px solid #1a1a1a; border-radius: 0; box-shadow: 4px 4px 0 #1a1a1a; }
+body.theme-brutalist .month-card-header { background: #1a1a1a; }
+body.theme-brutalist .kpi-card { border: 2px solid #1a1a1a; border-radius: 0; box-shadow: 3px 3px 0 #ff6b2b; }
+body.theme-brutalist .kpi-value { color: #ff6b2b; }
+body.theme-brutalist .chart-card { border: 2px solid #1a1a1a; border-radius: 0; }
+body.theme-brutalist .absence-card { border: 2px solid #1a1a1a; border-radius: 0; }
+body.theme-brutalist button.tb { border: 2px solid #1a1a1a; border-radius: 0; font-weight: 700; text-transform: uppercase; }
+body.theme-brutalist button.tb:hover { background: #1a1a1a; color: #fff; }
+body.theme-brutalist .back-btn { border: 2px solid #ff6b2b; border-radius: 0; color: #ff6b2b; background: #fff; }
+body.theme-brutalist .section-title::before { background: #ff6b2b; }
+body.theme-brutalist .group-section-header { border-left: 3px solid #ff6b2b; }
+
+body.theme-aurora {
+  --bg: #f5f0ff; --surface: rgba(255,255,255,0.85); --surface2: rgba(255,255,255,0.6);
+  --border: rgba(139,92,246,0.2); --border2: rgba(139,92,246,0.35);
+  --accent: #8b5cf6; --accent2: #7c3aed; --accent-lt: rgba(139,92,246,0.1);
+  --text: #1e1b4b; --text2: #6b7280; --text3: #9ca3af; --shadow: rgba(139,92,246,0.12);
+}
+body.theme-aurora { background: linear-gradient(135deg,#f5f0ff,#f0f7ff,#f0fff7); }
+body.theme-aurora .topbar { background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); border-radius: 16px; border-color: rgba(139,92,246,0.2); }
+body.theme-aurora .month-card { border-radius: 16px; border-color: rgba(139,92,246,0.15); background: rgba(255,255,255,0.75); }
+body.theme-aurora .month-card-header { background: linear-gradient(90deg,#8b5cf6,#06b6d4); border-radius: 16px 16px 0 0; }
+body.theme-aurora .kpi-card { background: rgba(255,255,255,0.7); border-color: rgba(139,92,246,0.15); border-radius: 14px; }
+body.theme-aurora .kpi-value { color: #8b5cf6; }
+body.theme-aurora .chart-card { background: rgba(255,255,255,0.75); border-radius: 16px; border-color: rgba(139,92,246,0.15); }
+body.theme-aurora .absence-card { border-radius: 16px; border-color: rgba(139,92,246,0.15); }
+body.theme-aurora button.tb { border-radius: 20px; border-color: rgba(139,92,246,0.2); color: #7c3aed; background: rgba(139,92,246,0.06); }
+body.theme-aurora button.tb:hover { background: rgba(139,92,246,0.15); }
+body.theme-aurora .back-btn { border-radius: 20px; color: #7c3aed; background: rgba(139,92,246,0.08); border-color: rgba(139,92,246,0.25); }
+body.theme-aurora .section-title::before { background: linear-gradient(135deg,#8b5cf6,#06b6d4); }
+body.theme-aurora .group-section-header:hover { background: rgba(139,92,246,0.06); }
+
+/* Theme switcher */
+.theme-switcher { display: flex; align-items: center; gap: 6px; }
+.theme-btn { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform 0.15s; flex-shrink: 0; }
+.theme-btn:hover { transform: scale(1.15); }
+.theme-btn.active { border-color: var(--text); transform: scale(1.1); }
+.theme-btn[data-theme="default"] { background: linear-gradient(135deg,#3a6fc4,#eef1f6); }
+.theme-btn[data-theme="dark"]    { background: linear-gradient(135deg,#0f1624,#00e5ff); }
+.theme-btn[data-theme="brutalist"]{ background: linear-gradient(135deg,#1a1a1a,#ff6b2b); }
+.theme-btn[data-theme="aurora"]  { background: linear-gradient(135deg,#8b5cf6,#06b6d4); }
+.theme-switcher-label { font-size: 10px; color: var(--text3); font-weight: 500; }
+
 </style>
 </head>
 <body>
@@ -150,6 +237,13 @@ button.tb.active { background:var(--accent); color:#fff; border-color:var(--acce
     <span class="user-info" id="user-info"></span>
     <a class="back-btn" href="index.html">&#8592; Lista obecności</a>
     <button class="tb" id="refresh-btn">&#8635; Odśwież</button>
+    <div class="theme-switcher">
+      <span class="theme-switcher-label">Motyw:</span>
+      <div class="theme-btn active" data-theme="default" title="Domyślny"></div>
+      <div class="theme-btn" data-theme="dark" title="Neon Dark"></div>
+      <div class="theme-btn" data-theme="brutalist" title="Brutalist"></div>
+      <div class="theme-btn" data-theme="aurora" title="Aurora"></div>
+    </div>
     <button class="tb" id="logout-btn">Wyloguj</button>
   </div>
 
@@ -611,6 +705,22 @@ function renderAbsenceTable(y,m) {
 function showLoading(t){document.getElementById('loading-text').textContent=t||'Ładowanie...';document.getElementById('loading').classList.remove('hidden');}
 function hideLoading(){document.getElementById('loading').classList.add('hidden');}
 function showToast(msg){let t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
+
+
+// ── Theme switcher ─────────────────────────────────────────────
+const THEMES = ['default','dark','brutalist','aurora'];
+function applyTheme(theme) {
+  THEMES.forEach(t => document.body.classList.remove('theme-' + t));
+  if (theme !== 'default') document.body.classList.add('theme-' + theme);
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === theme);
+  });
+  localStorage.setItem('att-theme', theme);
+}
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('theme-btn')) applyTheme(e.target.dataset.theme);
+});
+(function() { applyTheme(localStorage.getItem('att-theme') || 'default'); })();
 
 initMsal();
 </script>
