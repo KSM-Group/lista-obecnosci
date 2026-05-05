@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Dashboard Obecności</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.7.1/lib/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #eef1f6; --surface: #fff; --surface2: #f4f6fa;
+  --border: #d3d9e4; --border2: #b8c2d4;
+  --accent: #3a6fc4; --accent2: #2d5ba8; --accent-lt: #e8eef8;
+  --text: #1e2a3a; --text2: #5a6a80; --text3: #8c9ab0;
+  --shadow: rgba(30,42,58,0.10);
+  --green: #1a7a2e; --red: #a4262c; --blue: #1a5fa8;
+  --orange: #e65100; --purple: #6a1b9a; --teal: #00695c;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Segoe UI", system-ui, Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* Auth */
+#auth-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; gap:18px; background:linear-gradient(145deg,#dce6f5,#eef1f6,#e4ecf8); }
+.auth-card { background:var(--surface); border-radius:16px; padding:40px 48px; box-shadow:0 8px 32px rgba(30,42,58,0.13); display:flex; flex-direction:column; align-items:center; gap:14px; max-width:340px; width:100%; }
+#auth-screen h1 { font-size:22px; font-weight:700; }
+#auth-screen p { font-size:13px; color:var(--text2); text-align:center; line-height:1.5; }
+.ms-btn { background:var(--accent); color:#fff; border:none; border-radius:8px; padding:11px 28px; font-size:14px; cursor:pointer; font-family:inherit; font-weight:600; display:flex; align-items:center; gap:8px; box-shadow:0 2px 8px rgba(58,111,196,0.25); }
+.ms-btn:hover { background:var(--accent2); }
+
+/* App */
+#app { display:none; padding:1rem 1.25rem; }
+
+/* Topbar */
+.topbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:1rem; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px 16px; box-shadow:0 2px 8px var(--shadow); }
+.topbar h1 { font-size:16px; font-weight:700; flex:1; display:flex; align-items:center; gap:8px; }
+.topbar h1::before { content:""; display:inline-block; width:20px; height:20px; background:var(--accent); border-radius:5px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='white'%3E%3Crect x='2' y='4' width='7' height='12' rx='1'/%3E%3Crect x='11' y='4' width='7' height='12' rx='1'/%3E%3C/svg%3E"); flex-shrink:0; }
+button.tb { background:var(--surface2); border:1px solid var(--border); border-radius:7px; padding:6px 12px; cursor:pointer; font-size:12px; font-family:inherit; color:var(--text); font-weight:500; }
+button.tb:hover { background:var(--accent-lt); border-color:var(--accent); color:var(--accent); }
+button.tb.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+.user-info { font-size:11px; color:var(--text2); background:var(--surface2); border:1px solid var(--border); border-radius:20px; padding:3px 10px; }
+
+/* Loading */
+#loading { position:fixed; inset:0; background:rgba(238,241,246,0.8); display:flex; align-items:center; justify-content:center; z-index:999; font-size:14px; color:var(--text2); gap:10px; backdrop-filter:blur(2px); }
+#loading.hidden { display:none; }
+.spinner { width:22px; height:22px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Month columns */
+.months-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:1.5rem; }
+@media(max-width:900px) { .months-grid { grid-template-columns:1fr; } }
+
+.month-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; box-shadow:0 2px 10px var(--shadow); }
+.month-card-header { background:linear-gradient(90deg,#2d4a7a,#3a6fc4); color:#fff; padding:10px 16px; display:flex; align-items:center; justify-content:space-between; }
+.month-card-header h2 { font-size:14px; font-weight:700; }
+.month-card-header .wday-count { font-size:11px; opacity:0.8; }
+.month-card-body { padding:0; }
+
+/* Group section */
+.group-section { border-bottom:1px solid var(--border); }
+.group-section:last-child { border-bottom:none; }
+.group-section-header { display:flex; align-items:center; gap:8px; padding:8px 14px; background:var(--surface2); cursor:pointer; user-select:none; }
+.group-section-header:hover { background:var(--accent-lt); }
+.group-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.group-name { font-size:12px; font-weight:700; color:var(--text); flex:1; text-transform:uppercase; letter-spacing:0.5px; }
+.group-stats { display:flex; gap:8px; }
+.stat-badge { font-size:10px; padding:2px 7px; border-radius:10px; font-weight:600; }
+.stat-badge.present { background:#e6f4ea; color:var(--green); }
+.stat-badge.absent  { background:#fde7e9; color:var(--red); }
+.stat-badge.hours   { background:var(--accent-lt); color:var(--accent); }
+
+/* Employee rows */
+.emp-list { overflow:hidden; }
+.emp-row { display:flex; align-items:center; gap:6px; padding:6px 14px 6px 28px; border-top:1px solid var(--border); font-size:12px; }
+.emp-row:hover { background:#f6f8fd; }
+.emp-name { flex:1; font-weight:500; color:var(--text); }
+.emp-role { font-size:10px; color:var(--text3); background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:1px 6px; white-space:nowrap; }
+.emp-status { font-size:10px; font-weight:600; padding:2px 7px; border-radius:10px; white-space:nowrap; }
+.emp-status.obecny   { background:#e6f4ea; color:var(--green); }
+.emp-status.urlop    { background:#e3f0ff; color:var(--blue); }
+.emp-status.uz       { background:#fde7e9; color:var(--red); }
+.emp-status.nn       { background:#fef3cd; color:#856404; }
+.emp-status.l4       { background:#fce8e8; color:var(--red); }
+.emp-status.opieka   { background:#f3e8ff; color:var(--purple); }
+.emp-status.mixed    { background:#fff3e0; color:var(--orange); }
+.emp-hours { font-size:11px; color:var(--accent); font-weight:700; min-width:36px; text-align:right; }
+.emp-vacation-info { font-size:10px; color:var(--blue); background:#e3f0ff; border-radius:8px; padding:1px 6px; white-space:nowrap; }
+
+/* Summary KPI row */
+.kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:1.5rem; }
+@media(max-width:700px) { .kpi-row { grid-template-columns:repeat(2,1fr); } }
+.kpi-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; box-shadow:0 2px 8px var(--shadow); display:flex; flex-direction:column; gap:4px; }
+.kpi-label { font-size:11px; color:var(--text2); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+.kpi-value { font-size:26px; font-weight:800; color:var(--accent); line-height:1; }
+.kpi-sub { font-size:11px; color:var(--text3); }
+
+/* Charts section */
+.charts-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:1.5rem; }
+@media(max-width:800px) { .charts-row { grid-template-columns:1fr; } }
+.chart-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; box-shadow:0 2px 10px var(--shadow); }
+.chart-card h3 { font-size:13px; font-weight:700; color:var(--text); margin-bottom:12px; }
+.chart-wrap { position:relative; height:220px; }
+
+/* Absence detail table */
+.absence-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; margin-bottom:1.5rem; overflow:hidden; box-shadow:0 2px 10px var(--shadow); }
+.absence-card-header { background:linear-gradient(90deg,#2d4a7a,#3a6fc4); color:#fff; padding:10px 16px; font-size:14px; font-weight:700; }
+.absence-table { width:100%; border-collapse:collapse; font-size:12px; }
+.absence-table th { background:var(--surface2); color:var(--text2); font-weight:600; font-size:11px; padding:8px 12px; text-align:left; border-bottom:2px solid var(--border2); }
+.absence-table td { padding:7px 12px; border-bottom:1px solid var(--border); color:var(--text); }
+.absence-table tr:last-child td { border-bottom:none; }
+.absence-table tr:hover td { background:#f6f8fd; }
+
+/* Toast */
+.toast { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); background:#1e2a3a; color:#fff; border-radius:8px; padding:10px 22px; font-size:13px; z-index:1000; opacity:0; transition:opacity 0.3s; pointer-events:none; }
+.toast.show { opacity:1; }
+
+/* Back link */
+.back-btn { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--accent); text-decoration:none; background:var(--accent-lt); border:1px solid #c5d5ef; border-radius:7px; padding:5px 12px; font-weight:600; }
+.back-btn:hover { background:var(--accent); color:#fff; }
+
+/* Section title */
+.section-title { font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:10px; padding-left:2px; display:flex; align-items:center; gap:8px; }
+.section-title::before { content:""; display:inline-block; width:3px; height:14px; background:var(--accent); border-radius:2px; }
+
+/* Special roles */
+.role-kierownik { color:var(--accent); font-weight:700; }
+.role-koordynator { color:var(--teal); font-weight:600; }
+</style>
+</head>
+<body>
+
+<div id="loading" class="hidden"><div class="spinner"></div> <span id="loading-text">Ładowanie dashboardu...</span></div>
+
+<div id="auth-screen">
+  <div class="auth-card">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Microsoft_logo.svg/512px-Microsoft_logo.svg.png" width="64" alt="Microsoft" style="opacity:0.85"/>
+    <h1>Dashboard Obecności</h1>
+    <p>Zaloguj się kontem Microsoft 365</p>
+    <button class="ms-btn" id="login-btn">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6.5" height="6.5" fill="#f25022"/><rect x="8.5" y="1" width="6.5" height="6.5" fill="#7fba00"/><rect x="1" y="8.5" width="6.5" height="6.5" fill="#00a4ef"/><rect x="8.5" y="8.5" width="6.5" height="6.5" fill="#ffb900"/></svg>
+      Zaloguj się przez Microsoft
+    </button>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <h1>Dashboard Obecności</h1>
+    <span class="user-info" id="user-info"></span>
+    <a class="back-btn" href="index.html">&#8592; Lista obecności</a>
+    <button class="tb" id="refresh-btn">&#8635; Odśwież</button>
+    <button class="tb" id="logout-btn">Wyloguj</button>
+  </div>
+
+  <div id="dashboard-content">
+    <!-- KPIs -->
+    <div class="section-title">Podsumowanie bieżącego miesiąca</div>
+    <div class="kpi-row" id="kpi-row"></div>
+
+    <!-- 3 month columns -->
+    <div class="section-title">Obecność — 3 miesiące</div>
+    <div class="months-grid" id="months-grid"></div>
+
+    <!-- Charts -->
+    <div class="section-title">Wykresy</div>
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>📊 Absencje wg typu — bieżący miesiąc</h3>
+        <div class="chart-wrap"><canvas id="chart-absence"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>👥 Obecność wg grupy — bieżący miesiąc</h3>
+        <div class="chart-wrap"><canvas id="chart-groups"></canvas></div>
+      </div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card" style="grid-column:1/-1">
+        <h3>📈 Trend godzin przepracowanych — 3 miesiące</h3>
+        <div class="chart-wrap" style="height:200px"><canvas id="chart-trend"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Absence detail -->
+    <div class="section-title">Szczegóły absencji i urlopów</div>
+    <div class="absence-card">
+      <div class="absence-card-header">📋 Rejestr absencji — bieżący miesiąc</div>
+      <table class="absence-table">
+        <thead><tr><th>Pracownik</th><th>Rola</th><th>Grupa</th><th>Typ absencji</th><th>Dni</th><th>Okres</th></tr></thead>
+        <tbody id="absence-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG (same as main app) ──────────────────────────────────
+const CONFIG = {
+  clientId: "f3e40d3e-9a86-4784-af9a-d5a7fecd6593",
+  tenantId: "ad366acc-5c61-4862-b9c6-241bdbcc4167",
+  sharePointSite: "https://redlogislogistics-my.sharepoint.com/personal/michal_kucia_redlogis_pl",
+  listName: "ListaObecnosci",
+  redirectUri: "https://redlogis.github.io/lista-obecnosci/dashboard.html"
+};
+
+// ── Special roles ──────────────────────────────────────────────
+const SPECIAL_ROLES = {
+  'Dorota Lesińska':    { role: 'Kierownik',    shift: '1 zmiana', cls: 'role-kierownik' },
+  'Wiktor Wojtasik':    { role: 'Koordynator',  shift: '1 zmiana', cls: 'role-koordynator' },
+  'Mateusz Durzyński':  { role: 'Kierownik',    shift: '2 zmiana', cls: 'role-kierownik' },
+  'Natalia Czysta':     { role: 'Koordynator',  shift: '2 zmiana', cls: 'role-koordynator' },
+  'Bartosz Kozłowski':  { role: 'Kierownik 3PL/KJ', shift: '', cls: 'role-kierownik' },
+  'Bartosz Bandyszewski': { role: 'Koordynator Przyjęcie', shift: '', cls: 'role-koordynator' },
+  'Marceli Zawierucha': { role: 'Koordynator KJ', shift: '', cls: 'role-koordynator' },
+};
+
+const PL_MONTHS = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+const PL_DAYS   = ['Nd','Pn','Wt','Śr','Cz','Pt','Sb'];
+const GRAPH = 'https://graph.microsoft.com/v1.0';
+const SCOPES = ['User.Read','Sites.ReadWrite.All'];
+const GROUP_COLORS = ['#3a6fc4','#2e7d52','#8b4ec8','#e65100','#00695c','#a4262c','#0288d1','#827717'];
+const ABSENCE_COLORS = { 'UŻ':'#e53935','URLOP':'#1e88e5','NN':'#f9a825','Zwolnienie/L4':'#8e24aa','Opieka':'#00897b' };
+
+let msalInstance=null, account=null, siteId=null, listId=null;
+let employees=[], groups=[], monthStatuses={}, extraData={};
+
+// ── MSAL ──────────────────────────────────────────────────────
+function initMsal() {
+  msalInstance = new msal.PublicClientApplication({
+    auth: { clientId:CONFIG.clientId, authority:'https://login.microsoftonline.com/'+CONFIG.tenantId, redirectUri:CONFIG.redirectUri },
+    cache: { cacheLocation:'sessionStorage' }
+  });
+  msalInstance.initialize().then(() => {
+    msalInstance.handleRedirectPromise().then(resp => {
+      if (resp) account = resp.account;
+      else { let a=msalInstance.getAllAccounts(); if(a.length) account=a[0]; }
+      if (account) startApp();
+    }).catch(e => console.error(e));
+  });
+}
+document.getElementById('login-btn').addEventListener('click', () => msalInstance && msalInstance.loginRedirect({ scopes:SCOPES }));
+document.getElementById('logout-btn').addEventListener('click', () => msalInstance.logoutPopup().then(()=>location.reload()));
+document.getElementById('refresh-btn').addEventListener('click', () => loadData());
+
+async function getToken() {
+  try { return (await msalInstance.acquireTokenSilent({scopes:SCOPES,account})).accessToken; }
+  catch { return (await msalInstance.acquireTokenPopup({scopes:SCOPES})).accessToken; }
+}
+async function graphGet(url) {
+  let r = await fetch(GRAPH+url, {headers:{Authorization:'Bearer '+await getToken()}});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// ── Start ──────────────────────────────────────────────────────
+async function startApp() {
+  showLoading('Łączenie z SharePoint...');
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('user-info').textContent = account.name||account.username;
+  try {
+    let siteUrl = CONFIG.sharePointSite.replace('https://','');
+    let host=siteUrl.split('/')[0], path=siteUrl.split('/').slice(1).join('/');
+    let sr = path ? await graphGet('/sites/'+host+':/'+path) : await graphGet('/sites/'+host+':/');
+    siteId = sr.id;
+    let lr = await graphGet('/sites/'+siteId+'/lists?$top=200');
+    let found = lr.value.find(l=>l.displayName===CONFIG.listName||l.name===CONFIG.listName);
+    if(!found) throw new Error('Nie znaleziono listy');
+    listId = found.id;
+    await loadData();
+    hideLoading();
+  } catch(e) { hideLoading(); showToast('Błąd: '+e.message); }
+}
+
+async function loadData() {
+  showLoading('Ładowanie danych...');
+  try {
+    let resp = await graphGet('/sites/'+siteId+'/lists/'+listId+'/items?$expand=fields&$top=999');
+    employees=[]; groups=[]; monthStatuses={}; extraData={};
+
+    let empItem = resp.value.find(i=>i.fields.Title==='__employees__');
+    if(empItem) {
+      try {
+        let raw = JSON.parse(empItem.fields.Statusy||'{}');
+        if(Array.isArray(raw)) { employees=raw.map(n=>typeof n==='string'?{name:n,group:''}:n); groups=[]; }
+        else { employees=(raw.employees||[]).map(e=>typeof e==='string'?{name:e,group:''}:e); groups=raw.groups||[]; }
+      } catch {}
+    }
+
+    resp.value.filter(i=>i.fields.Title!=='__employees__').forEach(item=>{
+      let f=item.fields, mk=f.Rok+'_'+f.Miesiac;
+      if(!monthStatuses[mk]) monthStatuses[mk]={};
+      try {
+        let parsed=JSON.parse(f.Statusy||'{}');
+        let empName=f.Title;
+        Object.keys(monthStatuses[mk]).filter(k=>k.startsWith(empName+'||')).forEach(k=>delete monthStatuses[mk][k]);
+        if(parsed.statuses) {
+          Object.assign(monthStatuses[mk],parsed.statuses);
+          if(parsed.ot) extraData[empName+'||'+mk]=parsed.ot;
+        } else {
+          Object.keys(parsed).filter(k=>k.startsWith(empName+'||')).forEach(k=>{ monthStatuses[mk][k]=parsed[k]; });
+        }
+      } catch {}
+    });
+
+    renderDashboard();
+    hideLoading();
+  } catch(e) { hideLoading(); showToast('Błąd: '+e.message); }
+}
+
+// ── Helpers ────────────────────────────────────────────────────
+function getDays(y,m) { return new Date(y,m+1,0).getDate(); }
+function isWE(y,m,d) { let w=new Date(y,m,d).getDay(); return w===0||w===6; }
+function sKey(emp,day) { return emp+'||'+day; }
+function getStatuses(y,m) { return monthStatuses[y+'_'+m]||{}; }
+function getExtra(emp,y,m) { let k=emp+'||'+y+'_'+m; if(!extraData[k]) extraData[k]={ot50:0,ot100:0,partial:{}}; if(!extraData[k].partial) extraData[k].partial={}; return extraData[k]; }
+
+function getPolishHolidays(y) {
+  function easter(yr) {
+    let a=yr%19,b=Math.floor(yr/100),c=yr%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m2=Math.floor((a+11*h+22*l)/451),month=Math.floor((h+l-7*m2+114)/31)-1,day=((h+l-7*m2+114)%31)+1;
+    return new Date(yr,month,day);
+  }
+  let e=easter(y), add=(d,n)=>{let x=new Date(d);x.setDate(x.getDate()+n);return x;}, fmt=d=>d.getMonth()+'_'+d.getDate();
+  return new Set(['0_1','0_6','4_1','4_3','7_15','10_1','10_11','11_25','11_26',fmt(e),fmt(add(e,1)),fmt(add(e,49)),fmt(add(e,60))]);
+}
+
+function calcWorkDays(y,m) {
+  let days=getDays(y,m), hols=getPolishHolidays(y), count=0;
+  for(let d=1;d<=days;d++) { let dow=new Date(y,m,d).getDay(); if(dow!==0&&dow!==6&&!hols.has(m+'_'+d)) count++; }
+  return count;
+}
+
+function calcWorkDaysToDate(y,m) {
+  let today=new Date(), isNow=(today.getFullYear()===y&&today.getMonth()===m);
+  let last=isNow?today.getDate():getDays(y,m);
+  let hols=getPolishHolidays(y), count=0;
+  for(let d=1;d<=last;d++) { let dow=new Date(y,m,d).getDay(); if(dow!==0&&dow!==6&&!hols.has(m+'_'+d)) count++; }
+  return count;
+}
+
+function empHoursMonth(emp,y,m) {
+  let s=getStatuses(y,m), ex=getExtra(emp.name,y,m), hols=getPolishHolidays(y), total=0;
+  let today=new Date(), isNow=(today.getFullYear()===y&&today.getMonth()===m);
+  let last=isNow?today.getDate():getDays(y,m);
+  for(let d=1;d<=last;d++) {
+    let dow=new Date(y,m,d).getDay();
+    if(dow===0||dow===6||hols.has(m+'_'+d)) continue;
+    let v=s[sKey(emp.name,d)]||'OBECNY';
+    if(v==='OBECNY') { let ph=ex.partial&&ex.partial[d]!==undefined?parseFloat(ex.partial[d]):8; total+=ph; }
+  }
+  return total;
+}
+
+function empAbsenceDays(emp,y,m,type) {
+  let s=getStatuses(y,m), hols=getPolishHolidays(y), days=getDays(y,m), count=0;
+  for(let d=1;d<=days;d++) {
+    let dow=new Date(y,m,d).getDay();
+    if(dow===0||dow===6||hols.has(m+'_'+d)) continue;
+    let v=s[sKey(emp.name,d)]||'OBECNY';
+    if(v===type) count++;
+  }
+  return count;
+}
+
+function empVacationPeriods(emp,y,m) {
+  let s=getStatuses(y,m), days=getDays(y,m), periods=[], start=null;
+  for(let d=1;d<=days+1;d++) {
+    let v = d<=days ? (s[sKey(emp.name,d)]||'OBECNY') : null;
+    if(v==='URLOP') { if(!start) start=d; }
+    else { if(start) { periods.push({from:start,to:d-1,days:d-start}); start=null; } }
+  }
+  return periods;
+}
+
+function empTodayStatus(emp,y,m) {
+  let today=new Date(), isNow=(today.getFullYear()===y&&today.getMonth()===m);
+  if(!isNow) return null;
+  let s=getStatuses(y,m);
+  return s[sKey(emp.name,today.getDate())]||'OBECNY';
+}
+
+function statusClass(v) {
+  let m={'OBECNY':'obecny','UŻ':'uz','URLOP':'urlop','NN':'nn','Zwolnienie/L4':'l4','Opieka':'opieka'};
+  return m[v]||'obecny';
+}
+
+// ── Render Dashboard ───────────────────────────────────────────
+let chartAbsence=null, chartGroups=null, chartTrend=null;
+
+function renderDashboard() {
+  let now=new Date(), cy=now.getFullYear(), cm=now.getMonth();
+  let months=[[cy,cm],[cy,cm+1>11?0:cm+1,cm+1>11?cy+1:cy],[cy,cm+2>11?cm+2-12:cm+2,cm+2>11?cy+1:cy]];
+  // fix year rollover
+  months=[];
+  for(let i=0;i<3;i++){
+    let mm=cm+i, yy=cy; if(mm>11){mm-=12;yy++;} months.push([yy,mm]);
+  }
+
+  renderKPIs(cy,cm);
+  renderMonthsGrid(months);
+  renderCharts(cy,cm,months);
+  renderAbsenceTable(cy,cm);
+}
+
+function renderKPIs(y,m) {
+  let wd=calcWorkDays(y,m), wdNow=calcWorkDaysToDate(y,m);
+  let totalEmp=employees.length;
+  let todayPresent=employees.filter(e=>{let s=empTodayStatus(e,y,m);return s==='OBECNY';}).length;
+  let todayAbsent=employees.filter(e=>{let s=empTodayStatus(e,y,m);return s&&s!=='OBECNY';}).length;
+  let totalHours=employees.reduce((sum,e)=>sum+empHoursMonth(e,y,m),0);
+  let onVacation=employees.filter(e=>empTodayStatus(e,y,m)==='URLOP').length;
+
+  document.getElementById('kpi-row').innerHTML=`
+    <div class="kpi-card"><div class="kpi-label">Pracownicy dziś obecni</div><div class="kpi-value" style="color:var(--green)">${todayPresent}</div><div class="kpi-sub">z ${totalEmp} zatrudnionych</div></div>
+    <div class="kpi-card"><div class="kpi-label">Absencje dziś</div><div class="kpi-value" style="color:var(--red)">${todayAbsent}</div><div class="kpi-sub">urlop: ${onVacation}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Godziny razem (mies.)</div><div class="kpi-value">${totalHours}</div><div class="kpi-sub">dni rob: ${wdNow}/${wd}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Wszyscy pracownicy</div><div class="kpi-value">${totalEmp}</div><div class="kpi-sub">${groups.length} grup</div></div>
+  `;
+}
+
+function renderMonthsGrid(months) {
+  let grid=document.getElementById('months-grid');
+  grid.innerHTML='';
+  months.forEach(([y,m],mi)=>{
+    let card=document.createElement('div');
+    card.className='month-card';
+    let wd=calcWorkDays(y,m);
+    let isCurrent=mi===0;
+    card.innerHTML=`<div class="month-card-header" ${isCurrent?'style="background:linear-gradient(90deg,#1a3a6a,#2d5ba8)"':''}>
+      <h2>${isCurrent?'🔵 ':''}${PL_MONTHS[m]} ${y}</h2>
+      <span class="wday-count">${wd} dni rob.</span>
+    </div><div class="month-card-body" id="mcb-${y}-${m}"></div>`;
+    grid.appendChild(card);
+    renderMonthGroups(y,m,card.querySelector('.month-card-body'));
+  });
+}
+
+function renderMonthGroups(y,m,container) {
+  // Build grouped employees
+  let grouped={}, noGroup=[];
+  employees.forEach(emp=>{
+    if(emp.group&&groups.find(g=>g.id===emp.group)) { if(!grouped[emp.group]) grouped[emp.group]=[]; grouped[emp.group].push(emp); }
+    else noGroup.push(emp);
+  });
+
+  let renderGroup=(gid,emps,gi)=>{
+    let g=groups.find(x=>x.id===gid)||{name:'Bez grupy'};
+    let color=GROUP_COLORS[gi%GROUP_COLORS.length];
+    let presentCount=emps.filter(e=>{let s=getStatuses(y,m)[sKey(e.name,new Date().getDate())]||'OBECNY'; return s==='OBECNY';}).length;
+    let absentCount=emps.length-presentCount;
+    let totalHours=emps.reduce((s,e)=>s+empHoursMonth(e,y,m),0);
+
+    let section=document.createElement('div');
+    section.className='group-section';
+
+    let header=document.createElement('div');
+    header.className='group-section-header';
+    header.innerHTML=`<div class="group-dot" style="background:${color}"></div>
+      <span class="group-name">${g.name}</span>
+      <div class="group-stats">
+        <span class="stat-badge present">✓ ${presentCount}</span>
+        ${absentCount?`<span class="stat-badge absent">✗ ${absentCount}</span>`:''}
+        <span class="stat-badge hours">${totalHours}h</span>
+      </div>`;
+
+    let list=document.createElement('div');
+    list.className='emp-list';
+
+    emps.forEach(emp=>{
+      let statuses=getStatuses(y,m);
+      let days=getDays(y,m);
+      // Count absences
+      let absTypes={};
+      let hols=getPolishHolidays(y);
+      for(let d=1;d<=days;d++){
+        let dow=new Date(y,m,d).getDay();
+        if(dow===0||dow===6||hols.has(m+'_'+d)) continue;
+        let v=statuses[sKey(emp.name,d)]||'OBECNY';
+        if(v!=='OBECNY') { absTypes[v]=(absTypes[v]||0)+1; }
+      }
+      let absKeys=Object.keys(absTypes);
+      let todayV=getStatuses(y,m)[sKey(emp.name,new Date().getDate())]||'OBECNY';
+      let hours=empHoursMonth(emp,y,m);
+      let role=SPECIAL_ROLES[emp.name];
+      let vacPeriods=empVacationPeriods(emp,y,m);
+      let vacInfo='';
+      if(vacPeriods.length>0){
+        let totalVacDays=vacPeriods.reduce((s,p)=>s+p.days,0);
+        let periods=vacPeriods.map(p=>`${p.from}-${p.to}.${m+1}`).join(', ');
+        vacInfo=`<span class="emp-vacation-info">🏖 ${totalVacDays}d (${periods})</span>`;
+      }
+
+      let statusLabel=absKeys.length===0?'OBECNY':absKeys.length===1?absKeys[0]:'MIESZANY';
+      let statusCls=absKeys.length===0?'obecny':absKeys.length===1?statusClass(absKeys[0]):'mixed';
+
+      let row=document.createElement('div');
+      row.className='emp-row';
+      row.innerHTML=`
+        <span class="emp-name">${emp.name}${role?` <span class="${role.cls}" style="font-size:10px">(${role.role}${role.shift?' · '+role.shift:''})</span>`:''}</span>
+        ${vacInfo}
+        <span class="emp-status ${statusCls}">${statusLabel}</span>
+        <span class="emp-hours">${hours}h</span>
+      `;
+      list.appendChild(row);
+    });
+
+    // Toggle
+    header.addEventListener('click',()=>{ list.style.display=list.style.display==='none'?'block':'none'; });
+    section.appendChild(header);
+    section.appendChild(list);
+    container.appendChild(section);
+  };
+
+  groups.forEach((g,gi)=>{ if(grouped[g.id]&&grouped[g.id].length) renderGroup(g.id,grouped[g.id],gi); });
+  if(noGroup.length) renderGroup(null,noGroup,groups.length);
+}
+
+function renderCharts(cy,cm,months) {
+  // 1. Absence types pie
+  let absCount={};
+  let s=getStatuses(cy,cm), hols=getPolishHolidays(cy), days=getDays(cy,cm);
+  employees.forEach(emp=>{
+    for(let d=1;d<=days;d++){
+      let dow=new Date(cy,cm,d).getDay();
+      if(dow===0||dow===6||hols.has(cm+'_'+d)) continue;
+      let v=s[sKey(emp.name,d)]||'OBECNY';
+      if(v!=='OBECNY') absCount[v]=(absCount[v]||0)+1;
+    }
+  });
+  let absLabels=Object.keys(absCount), absData=absLabels.map(k=>absCount[k]);
+  let absColors=absLabels.map(k=>ABSENCE_COLORS[k]||'#999');
+
+  if(chartAbsence) chartAbsence.destroy();
+  chartAbsence=new Chart(document.getElementById('chart-absence'),{
+    type:'doughnut',
+    data:{ labels:absLabels.length?absLabels:['Brak absencji'], datasets:[{ data:absLabels.length?absData:[1], backgroundColor:absLabels.length?absColors:['#e8eef8'], borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{ font:{size:11}, padding:12 } } } }
+  });
+
+  // 2. Group presence bar
+  let grpLabels=[], grpPresent=[], grpAbsent=[];
+  let grouped={}, noGroup=[];
+  employees.forEach(emp=>{ if(emp.group&&groups.find(g=>g.id===emp.group)){if(!grouped[emp.group])grouped[emp.group]=[];grouped[emp.group].push(emp);}else noGroup.push(emp); });
+  groups.forEach(g=>{ if(!grouped[g.id]||!grouped[g.id].length) return; grpLabels.push(g.name); let p=0,a=0; grouped[g.id].forEach(e=>{ let v=s[sKey(e.name,new Date().getDate())]||'OBECNY'; if(v==='OBECNY')p++;else a++; }); grpPresent.push(p); grpAbsent.push(a); });
+  if(noGroup.length){ grpLabels.push('Bez grupy'); let p=0,a=0; noGroup.forEach(e=>{let v=s[sKey(e.name,new Date().getDate())]||'OBECNY';if(v==='OBECNY')p++;else a++;});grpPresent.push(p);grpAbsent.push(a); }
+
+  if(chartGroups) chartGroups.destroy();
+  chartGroups=new Chart(document.getElementById('chart-groups'),{
+    type:'bar',
+    data:{ labels:grpLabels, datasets:[
+      { label:'Obecni', data:grpPresent, backgroundColor:'rgba(26,122,46,0.7)', borderColor:'#1a7a2e', borderWidth:1, borderRadius:4 },
+      { label:'Nieobecni', data:grpAbsent, backgroundColor:'rgba(164,38,44,0.7)', borderColor:'#a4262c', borderWidth:1, borderRadius:4 }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{stacked:false}, y:{beginAtZero:true,ticks:{stepSize:1}} }, plugins:{ legend:{ position:'top', labels:{font:{size:11}} } } }
+  });
+
+  // 3. Trend line
+  let trendLabels=months.map(([y,m])=>PL_MONTHS[m].substring(0,3)+' '+y);
+  let trendData=months.map(([y,m])=>employees.reduce((sum,e)=>sum+empHoursMonth(e,y,m),0));
+
+  if(chartTrend) chartTrend.destroy();
+  chartTrend=new Chart(document.getElementById('chart-trend'),{
+    type:'line',
+    data:{ labels:trendLabels, datasets:[{ label:'Godziny razem', data:trendData, borderColor:'#3a6fc4', backgroundColor:'rgba(58,111,196,0.1)', borderWidth:2, pointRadius:6, pointBackgroundColor:'#3a6fc4', tension:0.3, fill:true }] },
+    options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:false} }, plugins:{ legend:{ display:false } } }
+  });
+}
+
+function renderAbsenceTable(y,m) {
+  let tbody=document.getElementById('absence-tbody');
+  tbody.innerHTML='';
+  let hols=getPolishHolidays(y), days=getDays(y,m), s=getStatuses(y,m);
+  let rows=[];
+
+  employees.forEach(emp=>{
+    let absTypes={};
+    for(let d=1;d<=days;d++){
+      let dow=new Date(y,m,d).getDay();
+      if(dow===0||dow===6||hols.has(m+'_'+d)) continue;
+      let v=s[sKey(emp.name,d)]||'OBECNY';
+      if(v!=='OBECNY') absTypes[v]=(absTypes[v]||0)+1;
+    }
+    let g=groups.find(x=>x.id===emp.group);
+    let role=SPECIAL_ROLES[emp.name];
+    let vacPeriods=empVacationPeriods(emp,y,m);
+
+    Object.keys(absTypes).forEach(type=>{
+      let period='';
+      if(type==='URLOP'&&vacPeriods.length) period=vacPeriods.map(p=>`${p.from}-${p.to}.${m+1} (${p.days}d)`).join('; ');
+      rows.push({ name:emp.name, role:role?role.role+' '+(role.shift||''):'—', group:g?g.name:'—', type, days:absTypes[type], period });
+    });
+  });
+
+  if(!rows.length) {
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px">Brak absencji w tym miesiącu 🎉</td></tr>';
+    return;
+  }
+  rows.sort((a,b)=>a.group.localeCompare(b.group)||a.name.localeCompare(b.name));
+  rows.forEach(r=>{
+    let tr=document.createElement('tr');
+    tr.innerHTML=`<td><strong>${r.name}</strong></td><td style="color:var(--text2);font-size:11px">${r.role}</td><td>${r.group}</td>
+      <td><span class="emp-status ${statusClass(r.type)}">${r.type}</span></td>
+      <td style="font-weight:700;color:var(--accent)">${r.days}</td>
+      <td style="color:var(--blue);font-size:11px">${r.period||'—'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function showLoading(t){document.getElementById('loading-text').textContent=t||'Ładowanie...';document.getElementById('loading').classList.remove('hidden');}
+function hideLoading(){document.getElementById('loading').classList.add('hidden');}
+function showToast(msg){let t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
+
+initMsal();
+</script>
+</body>
+</html>
