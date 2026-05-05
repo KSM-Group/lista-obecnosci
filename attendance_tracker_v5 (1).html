@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lista obecności</title>
+<script>
+const CONFIG = {
+  clientId: "f3e40d3e-9a86-4784-af9a-d5a7fecd6593",
+  tenantId: "ad366acc-5c61-4862-b9c6-241bdbcc4167",
+  sharePointSite: "https://redlogislogistics-my.sharepoint.com/personal/michal_kucia_redlogis_pl",
+  listName: "ListaObecnosci",
+  redirectUri: "https://redlogis.github.io/lista-obecnosci/"
+};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.7.1/lib/msal-browser.min.js"></script>
+<style>
+/* ── Paleta niebiesko-szara ── */
+:root {
+  --bg:        #eef1f6;
+  --surface:   #ffffff;
+  --surface2:  #f4f6fa;
+  --border:    #d3d9e4;
+  --border2:   #b8c2d4;
+  --accent:    #3a6fc4;
+  --accent2:   #2d5ba8;
+  --accent-lt: #e8eef8;
+  --text:      #1e2a3a;
+  --text2:     #5a6a80;
+  --text3:     #8c9ab0;
+  --shadow:    rgba(30,42,58,0.10);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Segoe UI", system-ui, Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ── Auth screen ── */
+#auth-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100vh; gap: 18px;
+  background: linear-gradient(145deg, #dce6f5 0%, #eef1f6 60%, #e4ecf8 100%);
+}
+.auth-card {
+  background: var(--surface); border-radius: 16px; padding: 40px 48px;
+  box-shadow: 0 8px 32px rgba(30,42,58,0.13); display: flex; flex-direction: column;
+  align-items: center; gap: 14px; max-width: 340px; width: 100%;
+}
+#auth-screen h1 { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+#auth-screen p { font-size: 13px; color: var(--text2); text-align: center; line-height: 1.5; }
+.ms-btn {
+  background: var(--accent); color: #fff; border: none; border-radius: 8px;
+  padding: 11px 28px; font-size: 14px; cursor: pointer; font-family: inherit; font-weight: 600;
+  display: flex; align-items: center; gap: 8px; transition: background 0.15s, transform 0.1s;
+  box-shadow: 0 2px 8px rgba(58,111,196,0.25);
+}
+.ms-btn:hover { background: var(--accent2); transform: translateY(-1px); }
+
+/* ── App wrapper ── */
+#app { display: none; max-width: 100%; padding: 1rem 1.25rem; }
+
+/* ── Topbar ── */
+.topbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 1rem; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 10px 16px; box-shadow: 0 2px 8px var(--shadow);
+}
+.topbar h1 {
+  font-size: 16px; font-weight: 700; flex: 1; color: var(--text);
+  letter-spacing: -0.2px;
+  display: flex; align-items: center; gap: 8px;
+}
+.topbar h1::before {
+  content: ""; display: inline-block; width: 20px; height: 20px;
+  background: var(--accent); border-radius: 5px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='white'%3E%3Crect x='2' y='3' width='16' height='2' rx='1'/%3E%3Crect x='2' y='7' width='16' height='2' rx='1'/%3E%3Crect x='2' y='11' width='10' height='2' rx='1'/%3E%3C/svg%3E");
+  flex-shrink: 0;
+}
+.user-info {
+  font-size: 11px; color: var(--text2);
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 3px 10px;
+}
+
+button.tb {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
+  padding: 6px 12px; cursor: pointer; font-size: 12px; font-family: inherit;
+  color: var(--text); transition: all 0.12s; font-weight: 500;
+}
+button.tb:hover { background: var(--accent-lt); border-color: var(--accent); color: var(--accent); }
+button.tb.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; box-shadow: 0 2px 6px rgba(58,111,196,0.2); }
+button.tb.primary:hover { background: var(--accent2); }
+button.tb.success { background: #2e7d52; color: #fff; border-color: #2e7d52; font-weight: 600; }
+button.tb.success:hover { background: #1f5c3a; }
+
+/* ── Month nav ── */
+.month-nav { display: flex; align-items: center; gap: 6px; }
+.month-nav button {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
+  padding: 5px 10px; cursor: pointer; font-size: 13px; color: var(--accent); font-weight: 600;
+  transition: all 0.12s;
+}
+.month-nav button:hover { background: var(--accent-lt); border-color: var(--accent); }
+.month-label {
+  font-size: 13px; font-weight: 700; min-width: 140px; text-align: center;
+  color: var(--text); background: var(--accent-lt); border-radius: 6px;
+  padding: 4px 10px; border: 1px solid #c5d5ef;
+}
+
+/* ── Loading ── */
+#loading { position: fixed; inset: 0; background: rgba(238,241,246,0.8); display: flex; align-items: center; justify-content: center; z-index: 999; font-size: 14px; color: var(--text2); gap: 10px; backdrop-filter: blur(2px); }
+#loading.hidden { display: none; }
+.spinner { width: 22px; height: 22px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Table ── */
+.table-wrap {
+  overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 160px);
+  border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
+  box-shadow: 0 2px 12px var(--shadow);
+}
+table { border-collapse: collapse; min-width: 100%; font-size: 12px; }
+
+thead th {
+  background: linear-gradient(180deg, #dce6f5 0%, #cfd9ee 100%);
+  font-weight: 700; font-size: 11px; color: var(--text2);
+  padding: 8px 5px; text-align: center; white-space: nowrap;
+  border-bottom: 2px solid var(--border2); border-right: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 2;
+}
+thead th:nth-child(1) {
+  width: 36px; min-width: 36px; position: sticky; left: 0; top: 0; z-index: 4;
+  background: linear-gradient(180deg, #dce6f5 0%, #cfd9ee 100%);
+}
+thead th:nth-child(2) {
+  text-align: left; min-width: 200px; position: sticky; left: 36px; top: 0; z-index: 4;
+  background: linear-gradient(180deg, #dce6f5 0%, #cfd9ee 100%);
+  border-right: 2px solid var(--border2);
+  box-shadow: 3px 0 6px -2px var(--shadow);
+}
+
+/* weekend & holiday columns */
+thead th.col-we  { background: linear-gradient(180deg, #e4e8f0 0%, #d8dde8 100%) !important; color: var(--text3); }
+thead th.col-hol { background: linear-gradient(180deg, #f5dede 0%, #eecfcf 100%) !important; color: #a4262c; font-weight: 700; }
+td.col-we  { background: #f0f3f8 !important; }
+td.col-hol { background: #fdf0f0 !important; }
+
+tbody td {
+  padding: 3px 4px; text-align: center; color: var(--text);
+  border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
+}
+tbody td:nth-child(1) {
+  font-size: 11px; color: var(--text3); font-weight: 600; text-align: center;
+  position: sticky; left: 0; z-index: 1;
+  background: var(--surface); border-right: 1px solid var(--border);
+}
+tbody td:nth-child(2) {
+  text-align: left; padding: 3px 8px; position: sticky; left: 36px; z-index: 1;
+  background: var(--surface); border-right: 2px solid var(--border2);
+  box-shadow: 3px 0 6px -2px var(--shadow);
+}
+tbody tr:hover td { background: #f0f4fb !important; }
+tbody tr:last-child td { border-bottom: none; }
+
+/* ── Group header row ── */
+tr.group-header td {
+  background: linear-gradient(90deg, #2d4a7a 0%, #3a6fc4 100%) !important;
+  color: #fff !important; font-weight: 700; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.8px;
+  padding: 6px 10px; border-bottom: 2px solid #1e3a6a;
+  border-right: 1px solid #3a5a9a;
+}
+tr.group-header td:nth-child(1) { background: linear-gradient(90deg, #2d4a7a 0%, #2d4a7a 100%) !important; }
+tr.group-header td:nth-child(2) { background: linear-gradient(90deg, #2d4a7a 0%, #3460b8 100%) !important; box-shadow: none; }
+
+/* ── Group row colors (niebiesko-szara paleta) ── */
+tr.g0 td:nth-child(1), tr.g0 td:nth-child(2) { background: #e8f0fb; }
+tr.g1 td:nth-child(1), tr.g1 td:nth-child(2) { background: #e4f0ec; }
+tr.g2 td:nth-child(1), tr.g2 td:nth-child(2) { background: #f0eaf8; }
+tr.g3 td:nth-child(1), tr.g3 td:nth-child(2) { background: #fdf3e4; }
+tr.g4 td:nth-child(1), tr.g4 td:nth-child(2) { background: #e4eef5; }
+tr.g5 td:nth-child(1), tr.g5 td:nth-child(2) { background: #f5e8e8; }
+tr.g6 td:nth-child(1), tr.g6 td:nth-child(2) { background: #e8f5f0; }
+tr.g7 td:nth-child(1), tr.g7 td:nth-child(2) { background: #f0f0e8; }
+
+/* ── Name cell ── */
+.name-cell { display: flex; align-items: center; gap: 4px; }
+.name-input {
+  border: none; background: transparent; font-size: 12px; color: var(--text);
+  font-family: inherit; width: 118px; outline: none; padding: 2px 4px; border-radius: 4px;
+}
+.name-input:focus { background: rgba(255,255,255,0.9); border: 1px solid var(--accent); }
+.del-btn { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 12px; padding: 1px 3px; border-radius: 4px; flex-shrink: 0; }
+.del-btn:hover { color: #a4262c; background: #fde7e9; }
+
+/* ── Group selector ── */
+select.grp-sel {
+  border: none; background: transparent; font-family: inherit; cursor: pointer;
+  font-size: 10px; padding: 1px 2px; border-radius: 3px; outline: none;
+  color: var(--text3); max-width: 62px; -webkit-appearance: none; appearance: none;
+}
+select.grp-sel:focus { background: rgba(255,255,255,0.8); }
+
+/* ── Status select ── */
+select.ss {
+  border: none; background: transparent; font-family: inherit; cursor: pointer;
+  padding: 3px 16px 3px 3px; border-radius: 4px; outline: none;
+  width: 80px; font-size: 10px;
+  -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%238c9ab0'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 3px center;
+}
+select.ss:focus { background-color: rgba(255,255,255,0.85); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%238c9ab0'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 3px center; }
+select.ss.obecny  { color: #1a7a2e; font-weight: 600; }
+select.ss.uz      { color: #a4262c; font-weight: 600; }
+select.ss.urlop   { color: #1a5fa8; font-weight: 600; }
+select.ss.nn      { color: #5a4a00; font-weight: 700; font-size: 9px; }
+select.ss.l4      { color: #8b1a1a; font-weight: 600; font-size: 9px; }
+select.ss.opieka  { color: #5a3580; font-weight: 600; font-size: 9px; }
+
+/* ── Save dot ── */
+.save-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); display: inline-block; margin-left: 6px; transition: background 0.3s; vertical-align: middle; }
+.save-dot.saving { background: #e6a817; }
+.save-dot.saved  { background: #2e7d52; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+  background: #1e2a3a; color: #fff; border-radius: 8px;
+  padding: 10px 22px; font-size: 13px; z-index: 1000;
+  opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  box-shadow: 0 4px 16px rgba(30,42,58,0.25);
+}
+.toast.show { opacity: 1; }
+
+/* ── Group panel ── */
+#group-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 1rem 1.25rem; margin-bottom: 1rem;
+  display: none; box-shadow: 0 2px 8px var(--shadow);
+}
+#group-panel h3 { font-size: 13px; font-weight: 700; margin-bottom: 10px; color: var(--text); }
+.group-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.group-chip {
+  display: flex; align-items: center; gap: 5px; padding: 4px 10px;
+  border-radius: 20px; font-size: 12px; border: 1px solid var(--border);
+  background: var(--surface2); transition: box-shadow 0.12s;
+}
+.group-chip:hover { box-shadow: 0 2px 6px var(--shadow); }
+.group-chip input {
+  border: none; background: transparent; font-size: 12px; font-family: inherit;
+  outline: none; width: 82px; color: var(--text);
+}
+.group-chip .chip-del { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 12px; padding: 0 2px; }
+.group-chip .chip-del:hover { color: #a4262c; }
+.group-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.1); }
+/* ── Extra columns ── */
+td.extra-col { background: #f0f7ff !important; }
+td.extra-col-sum { background: #f0fff4 !important; font-weight: 700; color: #1a5a2a; }
+input.hours-inp {
+  border: none; background: transparent; font-size: 11px; font-family: inherit;
+  width: 52px; outline: none; padding: 2px 4px; border-radius: 3px; text-align: center;
+  color: var(--text); font-weight: 600;
+}
+input.hours-inp:focus { background: rgba(255,255,255,0.9); border: 1px solid var(--accent); }
+input.hours-inp::-webkit-inner-spin-button { opacity: 1; }
+
+</style>
+</head>
+<body>
+
+<div id="loading" class="hidden"><div class="spinner"></div> <span id="loading-text">Ładowanie...</span></div>
+
+<div id="auth-screen">
+  <div class="auth-card">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Microsoft_logo.svg/512px-Microsoft_logo.svg.png" width="64" alt="Microsoft" style="opacity:0.85" />
+    <h1>Lista obecności</h1>
+    <p>Zaloguj się kontem Microsoft 365, aby uzyskać dostęp do danych zespołu.</p>
+    <button class="ms-btn" id="login-btn">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6.5" height="6.5" fill="#f25022"/><rect x="8.5" y="1" width="6.5" height="6.5" fill="#7fba00"/><rect x="1" y="8.5" width="6.5" height="6.5" fill="#00a4ef"/><rect x="8.5" y="8.5" width="6.5" height="6.5" fill="#ffb900"/></svg>
+      Zaloguj się przez Microsoft
+    </button>
+    <p id="auth-error" style="color:#a4262c;font-size:12px;display:none;"></p>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <h1>Lista obecności <span class="save-dot" id="save-dot"></span></h1>
+    <span class="user-info" id="user-info"></span>
+    <div class="month-nav">
+      <button id="prev-month">&#8592;</button>
+      <span class="month-label" id="month-label"></span>
+      <button id="next-month">&#8594;</button>
+    </div>
+    <button class="tb" id="groups-btn">&#9632; Grupy</button>
+    <button class="tb" id="add-employee">+ Pracownik</button>
+    <button class="tb" id="import-btn">&#8679; Import</button>
+    <input type="file" id="import-file" accept=".xlsx,.csv" style="display:none" />
+    <button class="tb primary" id="export-btn">&#8595; XLSX</button>
+    <button class="tb" id="logout-btn">Wyloguj</button>
+  </div>
+
+  <!-- Group manager -->
+  <div id="group-panel">
+    <h3>Zarządzaj grupami</h3>
+    <div class="group-list" id="group-list"></div>
+    <button class="tb success" id="add-group-btn">+ Dodaj grupę</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr id="header-row"></tr></thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const PL_MONTHS = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+const PL_DAYS   = ['Nd','Pn','Wt','Śr','Cz','Pt','Sb'];
+const STATUSES  = ['OBECNY','UŻ','URLOP','NN','Zwolnienie/L4','Opieka'];
+const S_CLASS   = { 'OBECNY':'obecny','UŻ':'uz','URLOP':'urlop','NN':'nn','Zwolnienie/L4':'l4','Opieka':'opieka' };
+const GROUP_COLORS = ['#c8e6c9','#bbdefb','#ffe0b2','#e1bee7','#ffccbc','#b2dfdb','#f8bbd0','#f0f4c3'];
+const GROUP_COLORS_DARK = ['#2e7d32','#1565c0','#e65100','#6a1b9a','#bf360c','#00695c','#880e4f','#827717'];
+
+const GRAPH = 'https://graph.microsoft.com/v1.0';
+const SCOPES = ['User.Read', 'Sites.ReadWrite.All'];
+
+let msalInstance = null, account = null, siteId = null, listId = null;
+let viewYear, viewMonth;
+// employees: array of { name, group }
+let employees = [];
+// groups: array of { id, name }
+let groups = [];
+let monthStatuses = {};
+let extraData = {}; // { 'empName||y_m': { ot50, ot100 } }
+let spItemIds = {};
+let saveTimer = null;
+
+// ── MSAL ──────────────────────────────────────────────────────
+function initMsal() {
+  msalInstance = new msal.PublicClientApplication({
+    auth: { clientId: CONFIG.clientId, authority: 'https://login.microsoftonline.com/' + CONFIG.tenantId, redirectUri: CONFIG.redirectUri },
+    cache: { cacheLocation: 'sessionStorage' }
+  });
+  msalInstance.initialize().then(() => {
+    msalInstance.handleRedirectPromise().then(resp => {
+      if (resp) account = resp.account;
+      else { let a = msalInstance.getAllAccounts(); if (a.length) account = a[0]; }
+      if (account) startApp();
+    }).catch(e => showAuthError(e));
+  });
+}
+document.getElementById('login-btn').addEventListener('click', () => msalInstance && msalInstance.loginRedirect({ scopes: SCOPES }));
+document.getElementById('logout-btn').addEventListener('click', () => msalInstance.logoutPopup().then(() => location.reload()));
+
+async function getToken() {
+  try { return (await msalInstance.acquireTokenSilent({ scopes: SCOPES, account })).accessToken; }
+  catch { return (await msalInstance.acquireTokenPopup({ scopes: SCOPES })).accessToken; }
+}
+async function graphGet(url) {
+  let r = await fetch(GRAPH + url, { headers: { Authorization: 'Bearer ' + await getToken() } });
+  if (!r.ok) throw new Error(await r.text()); return r.json();
+}
+async function graphPost(url, body) {
+  let r = await fetch(GRAPH + url, { method: 'POST', headers: { Authorization: 'Bearer ' + await getToken(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(await r.text()); return r.json();
+}
+async function graphPatch(url, body) {
+  let r = await fetch(GRAPH + url, { method: 'PATCH', headers: { Authorization: 'Bearer ' + await getToken(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(await r.text()); return r.json();
+}
+async function graphDelete(url) {
+  await fetch(GRAPH + url, { method: 'DELETE', headers: { Authorization: 'Bearer ' + await getToken() } });
+}
+
+// ── Start ──────────────────────────────────────────────────────
+async function startApp() {
+  showLoading('Łączenie z SharePoint...');
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('user-info').textContent = account.name || account.username;
+  try {
+    let siteUrl = CONFIG.sharePointSite.replace('https://', '');
+    let host = siteUrl.split('/')[0], path = siteUrl.split('/').slice(1).join('/');
+    let siteResp = path ? await graphGet('/sites/' + host + ':/' + path) : await graphGet('/sites/' + host + ':/');
+    siteId = siteResp.id;
+    let listsResp = await graphGet('/sites/' + siteId + '/lists?$top=200');
+    let found = listsResp.value.find(l => l.displayName === CONFIG.listName || l.name === CONFIG.listName);
+    if (!found) throw new Error('Nie znaleziono listy "' + CONFIG.listName + '"');
+    listId = found.id;
+    await loadFromSharePoint();
+    hideLoading();
+  } catch(e) { hideLoading(); showToast('Błąd: ' + e.message); loadDemoData(); }
+}
+
+// ── SharePoint data ────────────────────────────────────────────
+async function loadFromSharePoint() {
+  showLoading('Ładowanie danych...');
+  let resp = await graphGet('/sites/' + siteId + '/lists/' + listId + '/items?$expand=fields&$top=999');
+  employees = []; groups = []; monthStatuses = {}; spItemIds = {};
+
+  let empItem = resp.value.find(i => i.fields.Title === '__employees__');
+  if (empItem) {
+    try {
+      let raw = empItem.fields.Statusy || '{}';
+      let parsed = JSON.parse(raw);
+      // Backward compat: old format was array of strings
+      if (Array.isArray(parsed)) {
+        employees = parsed.map(n => typeof n === 'string' ? { name: n, group: '' } : n);
+        groups = [];
+      } else {
+        employees = (parsed.employees || []).map(e => typeof e === 'string' ? { name: e, group: '' } : e);
+        groups = parsed.groups || [];
+      }
+    } catch { employees = []; groups = []; }
+    spItemIds['__employees__'] = empItem.id;
+  }
+  if (!employees.length) employees = [];
+  if (!groups.length) groups = [];
+
+  resp.value.filter(i => i.fields.Title !== '__employees__').forEach(item => {
+    let f = item.fields, mk = f.Rok + '_' + f.Miesiac;
+    if (!monthStatuses[mk]) monthStatuses[mk] = {};
+    try {
+      let parsed = JSON.parse(f.Statusy || '{}');
+      if (parsed.statuses) {
+        Object.assign(monthStatuses[mk], parsed.statuses);
+        // Load extra data per employee
+        if (parsed.ot) {
+          let empName = f.Title;
+          let ek = empName + '||' + mk;
+          extraData[ek] = parsed.ot;
+        }
+      } else {
+        Object.assign(monthStatuses[mk], parsed);
+      }
+    } catch {}
+    spItemIds[mk + '_' + f.Title] = item.id;
+  });
+
+  let now = new Date(); viewYear = now.getFullYear(); viewMonth = now.getMonth();
+  renderTable(); renderGroupPanel();
+  hideLoading();
+}
+
+async function saveEmployees() {
+  let body = { fields: { Title: '__employees__', Statusy: JSON.stringify({ employees, groups }), Miesiac: '0', Rok: 0 } };
+  if (spItemIds['__employees__']) await graphPatch('/sites/' + siteId + '/lists/' + listId + '/items/' + spItemIds['__employees__'], body);
+  else { let r = await graphPost('/sites/' + siteId + '/lists/' + listId + '/items', body); spItemIds['__employees__'] = r.id; }
+}
+
+async function saveMonthForEmployee(emp, y, m) {
+  let mk = y + '_' + m, s = monthStatuses[mk] || {};
+  let empS = {}; Object.keys(s).filter(k => k.startsWith(emp + '||')).forEach(k => empS[k] = s[k]);
+  let ex = getExtra(emp, y, m);
+  let spKey = mk + '_' + emp;
+  let body = { fields: { Title: emp, Miesiac: String(m), Rok: y, Statusy: JSON.stringify({ statuses: empS, ot: ex }) } };
+  if (spItemIds[spKey]) await graphPatch('/sites/' + siteId + '/lists/' + listId + '/items/' + spItemIds[spKey], body);
+  else { let r = await graphPost('/sites/' + siteId + '/lists/' + listId + '/items', body); spItemIds[spKey] = r.id; }
+}
+
+async function deleteEmployeeData(empName) {
+  let toDelete = Object.keys(spItemIds).filter(k => k.endsWith('_' + empName) && k !== '__employees__');
+  for (let k of toDelete) { await graphDelete('/sites/' + siteId + '/lists/' + listId + '/items/' + spItemIds[k]); delete spItemIds[k]; }
+}
+
+function scheduleSave(emp) {
+  setSaveDot('saving');
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try { if (siteId) await saveMonthForEmployee(emp, viewYear, viewMonth); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+    catch(e) { showToast('Błąd zapisu: ' + e.message); setSaveDot(''); }
+  }, 800);
+}
+function setSaveDot(s) { document.getElementById('save-dot').className = 'save-dot' + (s ? ' ' + s : ''); }
+
+// ── Helpers ────────────────────────────────────────────────────
+
+function extraKey(emp, y, m) { return emp + '||' + y + '_' + m; }
+function getExtra(emp, y, m) {
+  let k = extraKey(emp, y, m);
+  if (!extraData[k]) extraData[k] = { ot50: '', ot100: '' };
+  return extraData[k];
+}
+function calcHoursToday(emp, y, m) {
+  let statuses = getStatuses(y, m);
+  let today = new Date();
+  let isCurrentMonth = (today.getFullYear() === y && today.getMonth() === m);
+  let days = getDays(y, m);
+  let lastDay = isCurrentMonth ? today.getDate() : days;
+  let hours = 0;
+  let holidays = getPolishHolidays(y);
+  for (let d = 1; d <= lastDay; d++) {
+    let cls = getDayClass(y, m, d);
+    if (cls) continue; // skip weekends & holidays
+    let val = statuses[sKey(emp.name, d)] || 'OBECNY';
+    if (val === 'OBECNY') hours += 8;
+  }
+  return hours;
+}
+
+function monthKey(y,m) { return y+'_'+m; }
+function getStatuses(y,m) { let k=monthKey(y,m); if(!monthStatuses[k]) monthStatuses[k]={}; return monthStatuses[k]; }
+function sKey(emp,day) { return emp+'||'+day; }
+function getDays(y,m) { return new Date(y,m+1,0).getDate(); }
+function isWE(y,m,d) { let w=new Date(y,m,d).getDay(); return w===0||w===6; }
+
+// Polish public holidays (fixed + Easter-based)
+function getPolishHolidays(y) {
+  // Easter calculation (Anonymous Gregorian)
+  function easter(yr) {
+    let a=yr%19, b=Math.floor(yr/100), c=yr%100;
+    let d=Math.floor(b/4), e=b%4, f=Math.floor((b+8)/25);
+    let g=Math.floor((b-f+1)/3), h=(19*a+b-d-g+15)%30;
+    let i=Math.floor(c/4), k=c%4, l=(32+2*e+2*i-h-k)%7;
+    let m2=Math.floor((a+11*h+22*l)/451);
+    let month=Math.floor((h+l-7*m2+114)/31)-1;
+    let day=((h+l-7*m2+114)%31)+1;
+    return new Date(yr, month, day);
+  }
+  let e = easter(y);
+  let add = (date, days) => { let d=new Date(date); d.setDate(d.getDate()+days); return d; };
+  let fmt = d => d.getMonth() + '_' + d.getDate();
+  let holidays = new Set([
+    '0_1',   // Nowy Rok
+    '0_6',   // Trzech Króli
+    '4_1',   // Święto Pracy
+    '4_3',   // Święto Konstytucji 3 Maja
+    '7_15',  // Wniebowzięcie NMP
+    '10_1',  // Wszystkich Świętych
+    '10_11', // Święto Niepodległości
+    '11_25', // Boże Narodzenie
+    '11_26', // Drugi dzień Bożego Narodzenia
+    fmt(e),            // Wielkanoc
+    fmt(add(e, 1)),    // Poniedziałek Wielkanocny
+    fmt(add(e, 49)),   // Zesłanie Ducha Świętego
+    fmt(add(e, 60)),   // Boże Ciało
+  ]);
+  return holidays;
+}
+
+function getDayClass(y,m,d) {
+  let holidays = getPolishHolidays(y);
+  let key = m + '_' + d;
+  if (holidays.has(key)) return 'col-hol';
+  let dow = new Date(y,m,d).getDay();
+  if (dow===0||dow===6) return 'col-we';
+  return '';
+}
+function getGroupIdx(groupId) { return groups.findIndex(g => g.id === groupId); }
+function loadDemoData() {
+  let now = new Date(); viewYear=now.getFullYear(); viewMonth=now.getMonth();
+  groups = [{id:'g1',name:'Magazyn'},{id:'g2',name:'Biuro'}];
+  employees = [{name:'Jan Kowalski',group:'g1'},{name:'Anna Nowak',group:'g1'},{name:'Piotr Wiśniewski',group:'g2'}];
+  monthStatuses = {}; renderTable(); renderGroupPanel();
+}
+
+// ── Group panel ────────────────────────────────────────────────
+function renderGroupPanel() {
+  let list = document.getElementById('group-list');
+  list.innerHTML = '';
+  groups.forEach((g, gi) => {
+    let chip = document.createElement('div');
+    chip.className = 'group-chip';
+    chip.style.borderColor = GROUP_COLORS_DARK[gi % GROUP_COLORS_DARK.length];
+    chip.style.background = GROUP_COLORS[gi % GROUP_COLORS.length];
+    chip.innerHTML = '<div class="group-dot" style="background:' + GROUP_COLORS_DARK[gi % GROUP_COLORS_DARK.length] + '"></div>' +
+      '<input value="' + g.name.replace(/"/g,'&quot;') + '" data-gi="' + gi + '" />' +
+      '<button class="chip-del" data-gi="' + gi + '">✕</button>';
+    list.appendChild(chip);
+  });
+  list.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('change', async function() {
+      groups[+this.dataset.gi].name = this.value.trim() || groups[+this.dataset.gi].name;
+      if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+      renderTable();
+    });
+  });
+  list.querySelectorAll('.chip-del').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      let gi = +this.dataset.gi, gid = groups[gi].id;
+      if (!confirm('Usunąć grupę? Pracownicy zostaną bez grupy.')) return;
+      groups.splice(gi, 1);
+      employees.forEach(e => { if (e.group === gid) e.group = ''; });
+      if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+      renderGroupPanel(); renderTable();
+    });
+  });
+}
+
+document.getElementById('groups-btn').addEventListener('click', () => {
+  let p = document.getElementById('group-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+});
+
+document.getElementById('add-group-btn').addEventListener('click', async () => {
+  let newId = 'g' + Date.now();
+  groups.push({ id: newId, name: 'Nowa grupa' });
+  if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+  renderGroupPanel(); renderTable();
+});
+
+
+function updateSumCell(empName, tr) {
+  let emp = employees.find(e => e.name === empName);
+  if (!emp) return;
+  let sumTd = tr.querySelector('td[data-sumrow]');
+  if (sumTd) sumTd.textContent = calcHoursToday(emp, viewYear, viewMonth);
+}
+
+// ── Render table ───────────────────────────────────────────────
+function renderTable() {
+  let days = getDays(viewYear, viewMonth);
+  let statuses = getStatuses(viewYear, viewMonth);
+  document.getElementById('month-label').textContent = PL_MONTHS[viewMonth] + ' ' + viewYear;
+
+  let hRow = document.getElementById('header-row');
+  hRow.innerHTML = '<th style="width:36px">#</th><th>Pracownik</th><th style="min-width:70px;background:linear-gradient(180deg,#d5e8f5,#c5daea)">Nadg.<br><span style="font-weight:400">50%</span></th><th style="min-width:70px;background:linear-gradient(180deg,#d5e8f5,#c5daea)">Nadg.<br><span style="font-weight:400">100%</span></th><th style="min-width:75px;background:linear-gradient(180deg,#cde8d5,#bbe0c8);color:#1a5a2a">Godz.<br><span style="font-weight:400">Razem</span></th>';
+  for (let d = 1; d <= days; d++) {
+    let dow = new Date(viewYear, viewMonth, d).getDay();
+    let cls = getDayClass(viewYear, viewMonth, d);
+    let holidays = getPolishHolidays(viewYear);
+    let isHol = holidays.has(viewMonth + '_' + d);
+    let dayLabel = d + '<br><span style="font-weight:400">' + PL_DAYS[dow] + '</span>' + (isHol ? '<br><span style="font-size:8px;color:#a4262c">🇵🇱</span>' : '');
+    hRow.innerHTML += '<th' + (cls ? ' class="' + cls + '"' : '') + '>' + dayLabel + '</th>';
+  }
+
+  let tbody = document.getElementById('table-body');
+  tbody.innerHTML = '';
+
+  // Sort employees by group, keeping order within group
+  let grouped = {};
+  let noGroup = [];
+  employees.forEach((emp, origIdx) => {
+    if (emp.group && groups.find(g => g.id === emp.group)) {
+      if (!grouped[emp.group]) grouped[emp.group] = [];
+      grouped[emp.group].push({ emp, origIdx });
+    } else {
+      noGroup.push({ emp, origIdx });
+    }
+  });
+
+  let orderNum = 1;
+  let colspan = days + 5;
+
+  function renderEmployeeRow(emp, origIdx, groupIdx) {
+    let tr = document.createElement('tr');
+    if (groupIdx >= 0) tr.className = 'g' + (groupIdx % 8);
+
+    // Number cell
+    let numTd = document.createElement('td');
+    numTd.textContent = orderNum++;
+    tr.appendChild(numTd);
+
+    // Name cell
+    let ntd = document.createElement('td');
+    // Group selector
+    let grpSel = document.createElement('select');
+    grpSel.className = 'grp-sel';
+    let optNone = document.createElement('option');
+    optNone.value = ''; optNone.textContent = '—';
+    if (!emp.group) optNone.selected = true;
+    grpSel.appendChild(optNone);
+    groups.forEach(g => {
+      let o = document.createElement('option');
+      o.value = g.id; o.textContent = g.name;
+      if (emp.group === g.id) o.selected = true;
+      grpSel.appendChild(o);
+    });
+    grpSel.dataset.ei = origIdx;
+    grpSel.addEventListener('change', async function() {
+      employees[+this.dataset.ei].group = this.value;
+      if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+      renderTable();
+    });
+
+    ntd.innerHTML = '<div class="name-cell"></div>';
+    let nameCell = ntd.querySelector('.name-cell');
+    nameCell.appendChild(grpSel);
+    let nameInp = document.createElement('input');
+    nameInp.className = 'name-input';
+    nameInp.value = emp.name;
+    nameInp.dataset.ei = origIdx;
+    nameCell.appendChild(nameInp);
+    let delBtn = document.createElement('button');
+    delBtn.className = 'del-btn'; delBtn.dataset.ei = origIdx; delBtn.textContent = '✕';
+    nameCell.appendChild(delBtn);
+    tr.appendChild(ntd);
+
+    for (let d = 1; d <= days; d++) {
+      let td = document.createElement('td');
+      let cls = getDayClass(viewYear, viewMonth, d);
+      if (cls) td.classList.add(cls);
+      let val = statuses[sKey(emp.name, d)] || 'OBECNY';
+      let sel = document.createElement('select');
+      sel.className = 'ss ' + (S_CLASS[val] || 'obecny');
+      STATUSES.forEach(opt => {
+        let o = document.createElement('option');
+        o.value = opt; o.textContent = opt; if (opt === val) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.dataset.emp = emp.name; sel.dataset.day = d;
+      sel.addEventListener('change', function() {
+        getStatuses(viewYear, viewMonth)[sKey(this.dataset.emp, this.dataset.day)] = this.value;
+        this.className = 'ss ' + (S_CLASS[this.value] || 'obecny');
+        // refresh sum cell
+        let empN = this.dataset.emp;
+        let empObj = employees.find(e => e.name === empN);
+        if (empObj) {
+          let sumTd = tr.querySelector('td[data-sumrow]');
+          if (sumTd) sumTd.textContent = calcHoursToday(empObj, viewYear, viewMonth);
+        }
+        scheduleSave(this.dataset.emp);
+      });
+      td.appendChild(sel); tr.appendChild(td);
+    }
+
+    // Nadgodziny 50%
+    let ot50td = document.createElement('td');
+    ot50td.className = 'extra-col';
+    let ot50inp = document.createElement('input');
+    ot50inp.className = 'hours-inp'; ot50inp.type = 'number'; ot50inp.min = '0'; ot50inp.step = '0.5';
+    ot50inp.placeholder = '0';
+    let exData = getExtra(emp.name, viewYear, viewMonth);
+    ot50inp.value = exData.ot50 || '';
+    ot50inp.dataset.emp = emp.name; ot50inp.dataset.type = 'ot50';
+    ot50inp.addEventListener('change', function() {
+      getExtra(this.dataset.emp, viewYear, viewMonth).ot50 = this.value;
+      updateSumCell(emp.name, tr);
+      scheduleSave(this.dataset.emp);
+    });
+    ot50td.appendChild(ot50inp); tr.appendChild(ot50td);
+
+    // Nadgodziny 100%
+    let ot100td = document.createElement('td');
+    ot100td.className = 'extra-col';
+    let ot100inp = document.createElement('input');
+    ot100inp.className = 'hours-inp'; ot100inp.type = 'number'; ot100inp.min = '0'; ot100inp.step = '0.5';
+    ot100inp.placeholder = '0';
+    ot100inp.value = exData.ot100 || '';
+    ot100inp.dataset.emp = emp.name; ot100inp.dataset.type = 'ot100';
+    ot100inp.addEventListener('change', function() {
+      getExtra(this.dataset.emp, viewYear, viewMonth).ot100 = this.value;
+      updateSumCell(emp.name, tr);
+      scheduleSave(this.dataset.emp);
+    });
+    ot100td.appendChild(ot100inp); tr.appendChild(ot100td);
+
+    // Godziny razem
+    let sumTd = document.createElement('td');
+    sumTd.className = 'extra-col-sum';
+    sumTd.dataset.sumrow = emp.name;
+    sumTd.textContent = calcHoursToday(emp, viewYear, viewMonth);
+    tr.appendChild(sumTd);
+
+    tbody.appendChild(tr);
+
+    // Name change event
+    nameInp.addEventListener('change', async function() {
+      let ei = +this.dataset.ei, oldName = employees[ei].name;
+      let newName = this.value.trim() || oldName;
+      this.value = newName;
+      employees[ei].name = newName;
+      Object.keys(monthStatuses).forEach(mk => {
+        let s = monthStatuses[mk];
+        Object.keys(s).filter(k => k.startsWith(oldName + '||')).forEach(k => {
+          s[sKey(newName, k.split('||')[1])] = s[k]; delete s[k];
+        });
+      });
+      Object.keys(spItemIds).filter(k => k.endsWith('_' + oldName)).forEach(k => {
+        spItemIds[k.replace('_' + oldName, '_' + newName)] = spItemIds[k]; delete spItemIds[k];
+      });
+      setSaveDot('saving');
+      if (siteId) { await saveEmployees(); await saveMonthForEmployee(newName, viewYear, viewMonth); }
+      setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000);
+    });
+
+    // Delete event
+    delBtn.addEventListener('click', async function() {
+      let ei = +this.dataset.ei, empName = employees[ei].name;
+      if (!confirm('Usunąć pracownika "' + empName + '" ze wszystkich miesięcy?')) return;
+      employees.splice(ei, 1);
+      Object.keys(monthStatuses).forEach(mk => {
+        Object.keys(monthStatuses[mk]).filter(k => k.startsWith(empName + '||')).forEach(k => delete monthStatuses[mk][k]);
+      });
+      showLoading('Usuwanie...');
+      if (siteId) { await deleteEmployeeData(empName); await saveEmployees(); }
+      hideLoading(); renderTable();
+    });
+  }
+
+  // Render grouped employees
+  groups.forEach((g, gi) => {
+    if (!grouped[g.id] || !grouped[g.id].length) return;
+    // Group header
+    let headerTr = document.createElement('tr');
+    headerTr.className = 'group-header';
+    let headerTd = document.createElement('td');
+    headerTd.colSpan = colspan;
+    headerTd.innerHTML = '<span style="background:' + GROUP_COLORS[gi % GROUP_COLORS.length] + ';color:' + GROUP_COLORS_DARK[gi % GROUP_COLORS_DARK.length] + ';padding:2px 8px;border-radius:10px;margin-right:6px;font-size:10px">●</span>' + g.name;
+    headerTr.appendChild(headerTd);
+    tbody.appendChild(headerTr);
+    grouped[g.id].forEach(({ emp, origIdx }) => renderEmployeeRow(emp, origIdx, gi));
+  });
+
+  // Ungrouped employees
+  if (noGroup.length) {
+    let headerTr = document.createElement('tr');
+    headerTr.className = 'group-header';
+    let headerTd = document.createElement('td');
+    headerTd.colSpan = colspan;
+    headerTd.textContent = 'Bez grupy';
+    headerTr.appendChild(headerTd);
+    tbody.appendChild(headerTr);
+    noGroup.forEach(({ emp, origIdx }) => renderEmployeeRow(emp, origIdx, -1));
+  }
+}
+
+// ── Navigation ─────────────────────────────────────────────────
+document.getElementById('prev-month').addEventListener('click', () => { viewMonth--; if(viewMonth<0){viewMonth=11;viewYear--;} renderTable(); });
+document.getElementById('next-month').addEventListener('click', () => { viewMonth++; if(viewMonth>11){viewMonth=0;viewYear++;} renderTable(); });
+
+document.getElementById('add-employee').addEventListener('click', async () => {
+  employees.push({ name: 'Nowy pracownik', group: '' });
+  renderTable();
+  let inputs = document.querySelectorAll('.name-input');
+  if (inputs.length) { let last = inputs[inputs.length-1]; last.focus(); last.select(); }
+  if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+});
+
+// ── XLSX export ────────────────────────────────────────────────
+document.getElementById('export-btn').addEventListener('click', () => {
+  let wb = XLSX.utils.book_new();
+  let days = getDays(viewYear, viewMonth);
+  let statuses = getStatuses(viewYear, viewMonth);
+  let header = ['#', 'Grupa', 'Pracownik', 'Nadg.50%', 'Nadg.100%', 'Godz.Razem'];
+  let holidays = getPolishHolidays(viewYear);
+  for (let d = 1; d <= days; d++) {
+    let dow = new Date(viewYear, viewMonth, d).getDay();
+    let isHol = holidays.has(viewMonth + '_' + d);
+    header.push(d + ' ' + PL_DAYS[dow] + (isHol ? ' 🇵🇱' : ''));
+  }
+  let rows = [header];
+  let num = 1;
+  groups.forEach(g => {
+    let empInGroup = employees.filter(e => e.group === g.id);
+    if (!empInGroup.length) return;
+    rows.push([g.name.toUpperCase(), '', '', ...Array(days).fill('')]);
+    empInGroup.forEach(emp => {
+      let exd = getExtra(emp.name, viewYear, viewMonth);
+      let row = [num++, g.name, emp.name, exd.ot50 || 0, exd.ot100 || 0, calcHoursToday(emp, viewYear, viewMonth)];
+      for (let d = 1; d <= days; d++) row.push(statuses[sKey(emp.name, d)] || 'OBECNY');
+      rows.push(row);
+    });
+  });
+  let ungrouped = employees.filter(e => !e.group || !groups.find(g => g.id === e.group));
+  if (ungrouped.length) {
+    rows.push(['BEZ GRUPY', '', '', ...Array(days).fill('')]);
+    ungrouped.forEach(emp => {
+      let exd2 = getExtra(emp.name, viewYear, viewMonth);
+      let row = [num++, '', emp.name, exd2.ot50 || 0, exd2.ot100 || 0, calcHoursToday(emp, viewYear, viewMonth)];
+      for (let d = 1; d <= days; d++) row.push(statuses[sKey(emp.name, d)] || 'OBECNY');
+      rows.push(row);
+    });
+  }
+  let ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, PL_MONTHS[viewMonth].substring(0,3) + '_' + viewYear);
+  XLSX.writeFile(wb, 'Obecnosc_' + PL_MONTHS[viewMonth] + '_' + viewYear + '.xlsx');
+});
+
+function showLoading(txt) { document.getElementById('loading-text').textContent = txt||'Ładowanie...'; document.getElementById('loading').classList.remove('hidden'); }
+function hideLoading() { document.getElementById('loading').classList.add('hidden'); }
+function showAuthError(e) { let el=document.getElementById('auth-error'); el.textContent='Błąd: '+(e.message||e); el.style.display='block'; }
+function showToast(msg) { let t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3500); }
+
+// ── Import ─────────────────────────────────────────────────────
+document.getElementById('import-btn').addEventListener('click', () => {
+  document.getElementById('import-file').value = '';
+  document.getElementById('import-file').click();
+});
+
+document.getElementById('import-file').addEventListener('change', async function() {
+  let file = this.files[0];
+  if (!file) return;
+  let names = [];
+
+  try {
+    if (file.name.endsWith('.csv')) {
+      let text = await file.text();
+      names = text.split(/\r?\n/).map(l => l.trim().replace(/^["']|["']$/g, '')).filter(n => n.length > 0);
+    } else {
+      let buf = await file.arrayBuffer();
+      let wb = XLSX.read(buf, { type: 'array' });
+      let ws = wb.Sheets[wb.SheetNames[0]];
+      let rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      rows.forEach(row => {
+        let val = (row[0] || '').toString().trim();
+        if (val) names.push(val);
+      });
+    }
+  } catch(e) { showToast('Błąd importu: ' + e.message); return; }
+
+  if (!names.length) { showToast('Nie znaleziono żadnych nazwisk w pliku.'); return; }
+
+  // Skip header row if it looks like a header (no space, all caps, or "Pracownik")
+  let first = names[0].toLowerCase();
+  if (first === 'pracownik' || first === 'nazwisko' || first === 'imię i nazwisko' || first === 'name') names.shift();
+
+  if (!names.length) { showToast('Plik nie zawiera danych.'); return; }
+
+  let added = 0;
+  names.forEach(name => {
+    if (!employees.find(e => e.name.toLowerCase() === name.toLowerCase())) {
+      employees.push({ name, group: '' });
+      added++;
+    }
+  });
+
+  if (added === 0) { showToast('Wszyscy pracownicy już istnieją na liście.'); return; }
+
+  showToast('Zaimportowano ' + added + ' pracowników ✓');
+  renderTable();
+  if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+});
+
+initMsal();
+</script>
+</body>
+</html>
