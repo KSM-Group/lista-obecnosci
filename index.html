@@ -496,8 +496,9 @@ function calcHoursToday(emp, y, m) {
   let hours = 0;
   let holidays = getPolishHolidays(y);
   for (let d = 1; d <= lastDay; d++) {
-    let cls = getDayClass(y, m, d);
-    if (cls) continue; // skip weekends & holidays
+    let dow = new Date(y, m, d).getDay();
+    if (dow === 0 || dow === 6) continue; // skip weekends
+    if (holidays.has(m + '_' + d)) continue; // skip public holidays
     let val = statuses[sKey(emp.name, d)] || 'OBECNY';
     if (val === 'OBECNY') hours += 8;
   }
