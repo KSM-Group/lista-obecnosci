@@ -265,6 +265,23 @@ input.hours-inp {
 }
 input.hours-inp:focus { background: rgba(255,255,255,0.9); border: 1px solid var(--accent); }
 input.hours-inp::-webkit-inner-spin-button { opacity: 1; }
+/* Partial day correction */
+td.partial-day { background: #fff3e0 !important; }
+.partial-overlay {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  background: #fff; border: 1px solid var(--accent); border-radius: 6px;
+  padding: 8px 12px; z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  display: flex; flex-direction: column; gap: 6px; min-width: 160px;
+}
+.partial-overlay label { font-size: 11px; color: var(--text2); font-weight: 600; }
+.partial-overlay input { border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; font-size: 13px; font-family: inherit; width: 100%; outline: none; text-align: center; }
+.partial-overlay input:focus { border-color: var(--accent); }
+.partial-overlay .p-btns { display: flex; gap: 6px; }
+.partial-overlay .p-btns button { flex: 1; padding: 4px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; font-size: 11px; font-family: inherit; }
+.partial-overlay .p-btns .p-ok { background: var(--accent); color: #fff; border-color: var(--accent); }
+.partial-overlay .p-btns .p-cancel { background: var(--surface2); color: var(--text); }
+select.ss.partial { color: #e65100 !important; font-weight: 700 !important; }
+
 
 </style>
 </head>
@@ -322,8 +339,8 @@ input.hours-inp::-webkit-inner-spin-button { opacity: 1; }
 <script>
 const PL_MONTHS = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 const PL_DAYS   = ['Nd','Pn','Wt','Śr','Cz','Pt','Sb'];
-const STATUSES  = ['OBECNY','UŻ','URLOP','NN','ZWOLNIENIE/L4','OPIEKA'];
-const S_CLASS   = { 'OBECNY':'obecny','UŻ':'uz','URLOP':'urlop','NN':'nn','ZWOLENIENIE/L4':'l4','OPIEKA':'opieka' };
+const STATUSES  = ['OBECNY','UŻ','URLOP','NN','Zwolnienie/L4','Opieka'];
+const S_CLASS   = { 'OBECNY':'obecny','UŻ':'uz','URLOP':'urlop','NN':'nn','Zwolnienie/L4':'l4','Opieka':'opieka' };
 const GROUP_COLORS = ['#c8e6c9','#bbdefb','#ffe0b2','#e1bee7','#ffccbc','#b2dfdb','#f8bbd0','#f0f4c3'];
 const GROUP_COLORS_DARK = ['#2e7d32','#1565c0','#e65100','#6a1b9a','#bf360c','#00695c','#880e4f','#827717'];
 
@@ -428,16 +445,19 @@ async function loadFromSharePoint() {
     if (!monthStatuses[mk]) monthStatuses[mk] = {};
     try {
       let parsed = JSON.parse(f.Statusy || '{}');
+      let empName = f.Title;
+      // Clear any old keys for this employee before loading
+      Object.keys(monthStatuses[mk]).filter(k => k.startsWith(empName + '||')).forEach(k => delete monthStatuses[mk][k]);
       if (parsed.statuses) {
         Object.assign(monthStatuses[mk], parsed.statuses);
-        // Load extra data per employee
         if (parsed.ot) {
-          let empName = f.Title;
-          let ek = empName + '||' + mk;
-          extraData[ek] = parsed.ot;
+          extraData[empName + '||' + mk] = parsed.ot;
         }
       } else {
-        Object.assign(monthStatuses[mk], parsed);
+        // Old format — load but only keys belonging to this employee
+        Object.keys(parsed).filter(k => k.startsWith(empName + '||')).forEach(k => {
+          monthStatuses[mk][k] = parsed[k];
+        });
       }
     } catch {}
     spItemIds[mk + '_' + f.Title] = item.id;
@@ -456,7 +476,13 @@ async function saveEmployees() {
 
 async function saveMonthForEmployee(emp, y, m) {
   let mk = y + '_' + m, s = monthStatuses[mk] || {};
-  let empS = {}; Object.keys(s).filter(k => k.startsWith(emp + '||')).forEach(k => empS[k] = s[k]);
+  // Build FULL status map for this employee (all days of month)
+  let days = getDays(y, m);
+  let empS = {};
+  for (let d = 1; d <= days; d++) {
+    let k = sKey(emp, d);
+    empS[k] = s[k] || 'OBECNY';
+  }
   let ex = getExtra(emp, y, m);
   let spKey = mk + '_' + emp;
   let body = { fields: { Title: emp, Miesiac: String(m), Rok: y, Statusy: JSON.stringify({ statuses: empS, ot: ex }) } };
@@ -484,7 +510,8 @@ function setSaveDot(s) { document.getElementById('save-dot').className = 'save-d
 function extraKey(emp, y, m) { return emp + '||' + y + '_' + m; }
 function getExtra(emp, y, m) {
   let k = extraKey(emp, y, m);
-  if (!extraData[k]) extraData[k] = { ot50: 0, ot100: 0 };
+  if (!extraData[k]) extraData[k] = { ot50: 0, ot100: 0, partial: {} };
+  if (!extraData[k].partial) extraData[k].partial = {};
   return extraData[k];
 }
 function calcHoursToday(emp, y, m) {
@@ -495,12 +522,17 @@ function calcHoursToday(emp, y, m) {
   let lastDay = isCurrentMonth ? today.getDate() : days;
   let hours = 0;
   let holidays = getPolishHolidays(y);
+  let ex = getExtra(emp.name, y, m);
   for (let d = 1; d <= lastDay; d++) {
     let dow = new Date(y, m, d).getDay();
-    if (dow === 0 || dow === 6) continue; // skip weekends
-    if (holidays.has(m + '_' + d)) continue; // skip public holidays
+    if (dow === 0 || dow === 6) continue;
+    if (holidays.has(m + '_' + d)) continue;
     let val = statuses[sKey(emp.name, d)] || 'OBECNY';
-    if (val === 'OBECNY') hours += 8;
+    if (val === 'OBECNY') {
+      // Check if partial hours set for this day
+      let ph = ex.partial && ex.partial[d] !== undefined ? parseFloat(ex.partial[d]) : 8;
+      hours += ph;
+    }
   }
   return hours;
 }
@@ -755,7 +787,12 @@ function renderTable() {
       sel.addEventListener('change', function() {
         getStatuses(viewYear, viewMonth)[sKey(this.dataset.emp, this.dataset.day)] = this.value;
         this.className = 'ss ' + (S_CLASS[this.value] || 'obecny');
-        // refresh sum cell
+        // if changed away from OBECNY, clear partial hours
+        if (this.value !== 'OBECNY') {
+          let ex2 = getExtra(this.dataset.emp, viewYear, viewMonth);
+          delete ex2.partial[this.dataset.day];
+          td.classList.remove('partial-day');
+        }
         let empN = this.dataset.emp;
         let empObj = employees.find(e => e.name === empN);
         if (empObj) {
@@ -764,6 +801,71 @@ function renderTable() {
         }
         scheduleSave(this.dataset.emp);
       });
+
+      // Double-click: set partial hours for OBECNY day
+      td.addEventListener('dblclick', function(e) {
+        if ((statuses[sKey(emp.name, d)] || 'OBECNY') !== 'OBECNY') return;
+        e.stopPropagation();
+        // Remove any existing overlay
+        document.querySelectorAll('.partial-overlay').forEach(el => el.remove());
+        let ex2 = getExtra(emp.name, viewYear, viewMonth);
+        let currentH = ex2.partial && ex2.partial[d] !== undefined ? ex2.partial[d] : 8;
+        let overlay = document.createElement('div');
+        overlay.className = 'partial-overlay';
+        overlay.innerHTML = '<label>Godziny w dniu ' + d + ':</label>' +
+          '<input type="number" min="0" max="8" step="0.5" value="' + currentH + '" id="partial-inp" />' +
+          '<div class="p-btns">' +
+          '<button class="p-cancel">Anuluj</button>' +
+          '<button class="p-ok">Zapisz</button>' +
+          '</div>';
+        td.style.position = 'relative';
+        td.appendChild(overlay);
+        let inp = overlay.querySelector('#partial-inp');
+        inp.focus(); inp.select();
+
+        overlay.querySelector('.p-cancel').addEventListener('click', () => overlay.remove());
+        overlay.querySelector('.p-ok').addEventListener('click', () => {
+          let h = parseFloat(inp.value);
+          if (isNaN(h) || h < 0) h = 0;
+          if (h > 8) h = 8;
+          ex2.partial[d] = h;
+          if (h < 8) {
+            td.classList.add('partial-day');
+            sel.className = 'ss partial';
+          } else {
+            td.classList.remove('partial-day');
+            sel.className = 'ss obecny';
+            delete ex2.partial[d];
+          }
+          let empObj = employees.find(e => e.name === emp.name);
+          if (empObj) {
+            let sumTd = tr.querySelector('td[data-sumrow]');
+            if (sumTd) sumTd.textContent = calcHoursToday(empObj, viewYear, viewMonth);
+          }
+          scheduleSave(emp.name);
+          overlay.remove();
+        });
+
+        inp.addEventListener('keydown', e2 => {
+          if (e2.key === 'Enter') overlay.querySelector('.p-ok').click();
+          if (e2.key === 'Escape') overlay.remove();
+        });
+
+        // Close on outside click
+        setTimeout(() => {
+          document.addEventListener('click', function handler(e3) {
+            if (!overlay.contains(e3.target)) { overlay.remove(); document.removeEventListener('click', handler); }
+          });
+        }, 100);
+      });
+
+      // Restore partial day color on render
+      let exInit = getExtra(emp.name, viewYear, viewMonth);
+      if ((statuses[sKey(emp.name, d)] || 'OBECNY') === 'OBECNY' && exInit.partial && exInit.partial[d] !== undefined && exInit.partial[d] < 8) {
+        td.classList.add('partial-day');
+        sel.className = 'ss partial';
+      }
+
       td.appendChild(sel); tr.appendChild(td);
     }
 
