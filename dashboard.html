@@ -232,8 +232,65 @@ body.theme-aurora .group-section-header:hover { background: rgba(139,92,246,0.06
 .theme-btn[data-theme="dark"]    { background: linear-gradient(135deg,#0f1624,#00e5ff); }
 .theme-btn[data-theme="brutalist"]{ background: linear-gradient(135deg,#1a1a1a,#ff6b2b); }
 .theme-btn[data-theme="aurora"]  { background: linear-gradient(135deg,#8b5cf6,#06b6d4); }
+.theme-btn[data-theme="coral"]    { background: linear-gradient(135deg,#ff6b35,#f7931e); }
+.theme-btn[data-theme="aqua"]     { background: linear-gradient(135deg,#0d9488,#06b6d4); }
+.theme-btn[data-theme="candy"]    { background: linear-gradient(135deg,#d946ef,#a855f7); }
 .theme-switcher-label { font-size: 10px; color: var(--text3); font-weight: 500; }
 
+
+body.theme-coral { background: #fff8f5; --accent: #ff6b35; --text: #2d1a0e; --text2: #6b4a3a; --surface: #fff; --border: #ffd5c2; }
+body.theme-coral .topbar { background: #fff; border-color: #ffd5c2; }
+body.theme-coral .topbar h1 { color: #2d1a0e; }
+body.theme-coral .month-card { background: #fff; border-color: #ffd5c2; }
+body.theme-coral .month-card-header { background: linear-gradient(90deg,#ff6b35,#f7931e); }
+body.theme-coral .kpi-card { background: #fff; border-color: #ffd5c2; }
+body.theme-coral .kpi-value { color: #ff6b35; }
+body.theme-coral .chart-card { background: #fff; border-color: #ffd5c2; }
+body.theme-coral .absence-card { border-color: #ffd5c2; }
+body.theme-coral .absence-card-header { background: linear-gradient(90deg,#ff6b35,#f7931e); }
+body.theme-coral .absence-table th { background: #fff8f5; border-color: #ffd5c2; }
+body.theme-coral button.tb { background: #fff3ee; border-color: #ffd5c2; color: #d94f0a; }
+body.theme-coral button.tb:hover { background: #ffe8d8; color: #ff6b35; }
+body.theme-coral .back-btn { background: #fff3ee; border-color: #ffd5c2; color: #ff6b35; }
+body.theme-coral .group-section-header { background: #fff8f5; }
+body.theme-coral .emp-hours { color: #ff6b35 !important; }
+body.theme-coral .stat-badge.hours { background: #fff3ee; color: #ff6b35; }
+
+body.theme-aqua { background: #f0fdfc; --accent: #0d9488; --text: #0f3d3a; --text2: #2d6e6a; --surface: #fff; --border: #99f6e4; }
+body.theme-aqua .topbar { background: #fff; border-color: #99f6e4; }
+body.theme-aqua .topbar h1 { color: #0f3d3a; }
+body.theme-aqua .month-card { background: #fff; border-color: #99f6e4; }
+body.theme-aqua .month-card-header { background: linear-gradient(90deg,#0d9488,#06b6d4); }
+body.theme-aqua .kpi-card { background: #fff; border-color: #99f6e4; }
+body.theme-aqua .kpi-value { color: #0d9488; }
+body.theme-aqua .chart-card { background: #fff; border-color: #99f6e4; }
+body.theme-aqua .absence-card { border-color: #99f6e4; }
+body.theme-aqua .absence-card-header { background: linear-gradient(90deg,#0d9488,#06b6d4); }
+body.theme-aqua .absence-table th { background: #f0fdfc; border-color: #99f6e4; }
+body.theme-aqua button.tb { background: #f0fdfc; border-color: #99f6e4; color: #0f766e; }
+body.theme-aqua button.tb:hover { background: #ccfbf1; color: #0d9488; }
+body.theme-aqua .back-btn { background: #f0fdfc; border-color: #99f6e4; color: #0d9488; }
+body.theme-aqua .group-section-header { background: #f0fdfc; }
+body.theme-aqua .emp-hours { color: #0d9488 !important; }
+body.theme-aqua .stat-badge.hours { background: #f0fdfc; color: #0d9488; }
+
+body.theme-candy { background: #fdf2ff; --accent: #d946ef; --text: #3b0764; --text2: #6b3074; --surface: #fff; --border: #f0abfc; }
+body.theme-candy .topbar { background: #fff; border-color: #f0abfc; }
+body.theme-candy .topbar h1 { color: #3b0764; }
+body.theme-candy .month-card { background: #fff; border-color: #f0abfc; }
+body.theme-candy .month-card-header { background: linear-gradient(90deg,#d946ef,#a855f7); }
+body.theme-candy .kpi-card { background: #fff; border-color: #f0abfc; }
+body.theme-candy .kpi-value { color: #d946ef; }
+body.theme-candy .chart-card { background: #fff; border-color: #f0abfc; }
+body.theme-candy .absence-card { border-color: #f0abfc; }
+body.theme-candy .absence-card-header { background: linear-gradient(90deg,#d946ef,#a855f7); }
+body.theme-candy .absence-table th { background: #fdf4ff; border-color: #f0abfc; }
+body.theme-candy button.tb { background: #fdf4ff; border-color: #f0abfc; color: #a21caf; border-radius: 20px; }
+body.theme-candy button.tb:hover { background: #fae8ff; color: #d946ef; }
+body.theme-candy .back-btn { background: #fdf4ff; border-color: #f0abfc; color: #d946ef; border-radius: 20px; }
+body.theme-candy .group-section-header { background: #fdf4ff; }
+body.theme-candy .emp-hours { color: #d946ef !important; }
+body.theme-candy .stat-badge.hours { background: #fdf4ff; color: #d946ef; }
 </style>
 </head>
 <body>
@@ -265,6 +322,9 @@ body.theme-aurora .group-section-header:hover { background: rgba(139,92,246,0.06
       <div class="theme-btn" data-theme="dark" title="Neon Dark"></div>
       <div class="theme-btn" data-theme="brutalist" title="Brutalist"></div>
       <div class="theme-btn" data-theme="aurora" title="Aurora"></div>
+      <div class="theme-btn" data-theme="coral" title="Coral Sunrise"></div>
+      <div class="theme-btn" data-theme="aqua" title="Aqua Mint"></div>
+      <div class="theme-btn" data-theme="candy" title="Candy Pop"></div>
     </div>
     <button class="tb" id="logout-btn">Wyloguj</button>
   </div>
@@ -730,7 +790,7 @@ function showToast(msg){let t=document.getElementById('toast');t.textContent=msg
 
 
 // ── Theme switcher ─────────────────────────────────────────────
-const THEMES = ['default','dark','brutalist','aurora'];
+const THEMES = ['default','dark','brutalist','aurora','coral','aqua','candy'];
 function applyTheme(theme) {
   THEMES.forEach(t => document.body.classList.remove('theme-' + t));
   if (theme !== 'default') document.body.classList.add('theme-' + theme);
