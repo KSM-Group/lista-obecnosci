@@ -202,6 +202,9 @@ select.ss.opieka { color: var(--status-op-text, #5a3580); }
 .theme-btn[data-theme="dark"]    { background: linear-gradient(135deg, #0f1624, #00e5ff); }
 .theme-btn[data-theme="brutalist"]{ background: linear-gradient(135deg, #1a1a1a, #ff6b2b); }
 .theme-btn[data-theme="aurora"]  { background: linear-gradient(135deg, #8b5cf6, #06b6d4); }
+.theme-btn[data-theme="coral"]    { background: linear-gradient(135deg, #ff6b35, #f7931e); }
+.theme-btn[data-theme="aqua"]     { background: linear-gradient(135deg, #0d9488, #06b6d4); }
+.theme-btn[data-theme="candy"]    { background: linear-gradient(135deg, #d946ef, #a855f7); }
 .theme-switcher-label { font-size: 10px; color: var(--text3); font-weight: 500; }
 
 /* Hours color override */
@@ -499,6 +502,9 @@ select.ss.partial { color: #e65100 !important; font-weight: 700 !important; }
       <div class="theme-btn" data-theme="dark" title="Neon Dark"></div>
       <div class="theme-btn" data-theme="brutalist" title="Brutalist"></div>
       <div class="theme-btn" data-theme="aurora" title="Aurora"></div>
+      <div class="theme-btn" data-theme="coral" title="Coral Sunrise"></div>
+      <div class="theme-btn" data-theme="aqua" title="Aqua Mint"></div>
+      <div class="theme-btn" data-theme="candy" title="Candy Pop"></div>
     </div>
     <button class="tb" id="logout-btn">Wyloguj</button>
   </div>
@@ -1225,7 +1231,7 @@ document.getElementById('import-file').addEventListener('change', async function
 
 
 // ── Theme switcher ─────────────────────────────────────────────
-const THEMES = ['default','dark','brutalist','aurora'];
+const THEMES = ['default','dark','brutalist','aurora','coral','aqua','candy'];
 function applyTheme(theme) {
   THEMES.forEach(t => document.body.classList.remove('theme-' + t));
   if (theme !== 'default') document.body.classList.add('theme-' + theme);
