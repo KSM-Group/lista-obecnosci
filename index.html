@@ -16,7 +16,7 @@ const CONFIG = {
   extraLogin: {
     email: "kucia.michal@gmail.com",
     // Zmień hasło poniżej na swoje:
-    password: "Lukrecja123!@#"
+    password: "USTAW_HASLO_TUTAJ"
   }
 };
 </script>
@@ -516,6 +516,7 @@ select.ss.partial { color: #e65100 !important; font-weight: 700 !important; }
     <button class="tb" id="import-btn">&#8679; Import</button>
     <input type="file" id="import-file" accept=".xlsx,.csv" style="display:none" />
     <a href="dashboard.html" class="tb" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px">📊 Dashboard</a>
+    <button class="tb" onclick="syncQRAttendance()" title="Synchronizuj dane z QR">🔄 QR Sync</button>
     <button class="tb primary" id="export-btn">&#8595; XLSX</button>
     <div class="theme-switcher">
       <span class="theme-switcher-label">Motyw:</span>
@@ -677,6 +678,7 @@ async function loadFromSharePoint() {
   let now = new Date(); viewYear = now.getFullYear(); viewMonth = now.getMonth();
   renderTable(); renderGroupPanel();
   hideLoading();
+  syncQRAttendance();
 }
 
 async function saveEmployees() {
@@ -984,6 +986,12 @@ function renderTable() {
 
     for (let d = 1; d <= days; d++) {
       let td = document.createElement('td');
+      // Check late arrival
+      let ek2 = emp.name + '||' + viewYear + '_' + viewMonth;
+      if (extraData[ek2] && extraData[ek2].late && extraData[ek2].late.includes(d)) {
+        td.classList.add('late-day');
+        td.title = 'Spóźnienie';
+      }
       let cls = getDayClass(viewYear, viewMonth, d);
       if (cls) td.classList.add(cls);
       let val = statuses[sKey(emp.name, d)] || 'OBECNY';
@@ -1333,6 +1341,72 @@ async function saveLocalData() {
     });
   } catch(e) { console.error('Save error:', e); }
 }
+
+
+// ── QR Integration ─────────────────────────────────────────────
+// Reads QR attendance events from Google Sheets and auto-fills statuses
+async function syncQRAttendance() {
+  try {
+    let resp = await fetch(CONFIG.appsScriptUrl);
+    let raw = await resp.text();
+    let data = JSON.parse(raw);
+    let attendance = data.attendance || [];
+    let today = new Date().toISOString().slice(0,10);
+    let y = new Date().getFullYear();
+    let m = new Date().getMonth();
+
+    // Process today's QR events
+    attendance.filter(e => e.date === today).forEach(event => {
+      if (event.action === 'entry') {
+        // Mark employee as OBECNY today
+        let empName = event.employee;
+        let d = new Date().getDate();
+        let mk = y + '_' + m;
+        if (!monthStatuses[mk]) monthStatuses[mk] = {};
+        let key = empName + '||' + d;
+        if (!monthStatuses[mk][key] || monthStatuses[mk][key] === 'OBECNY') {
+          monthStatuses[mk][key] = 'OBECNY';
+        }
+      } else if (event.action === 'exit') {
+        // Keep OBECNY but note exit time
+        let empName = event.employee;
+        let d = new Date().getDate();
+        let mk = y + '_' + m;
+        if (!monthStatuses[mk]) monthStatuses[mk] = {};
+        let key = empName + '||' + d;
+        if (!monthStatuses[mk][key]) monthStatuses[mk][key] = 'OBECNY';
+      }
+    });
+
+    // Check for late arrivals (after shift start)
+    // Default shift start: 06:00
+    attendance.filter(e => e.date === today && e.action === 'entry').forEach(event => {
+      let empName = event.employee;
+      let eventTime = event.time; // "HH:MM"
+      let [h, min] = eventTime.split(':').map(Number);
+      let shiftStart = 6 * 60; // 06:00 in minutes
+      let arrivalMin = h * 60 + min;
+      if (arrivalMin > shiftStart + 15) { // 15 min grace period
+        let d = new Date().getDate();
+        let mk = y + '_' + m;
+        if (!extraData) extraData = {};
+        let ek = empName + '||' + mk;
+        if (!extraData[ek]) extraData[ek] = { ot50: 0, ot100: 0, partial: {}, late: [] };
+        if (!extraData[ek].late) extraData[ek].late = [];
+        if (!extraData[ek].late.includes(d)) {
+          extraData[ek].late.push(d);
+        }
+      }
+    });
+
+    renderTable();
+  } catch(e) {
+    console.log('QR sync error:', e);
+  }
+}
+
+// Sync QR attendance every 2 minutes
+setInterval(syncQRAttendance, 120000);
 
 // ── Theme switcher ─────────────────────────────────────────────
 const THEMES = ['default','dark','brutalist','aurora','coral','aqua','candy'];
