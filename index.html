@@ -475,15 +475,29 @@ select.ss.partial { color: #e65100 !important; font-weight: 700 !important; }
 
 <div id="auth-screen">
   <div class="auth-card">
-    
     <img src="logo.png" width="160" alt="Logo" style="margin-bottom:8px;opacity:0.85;border-radius:16px;background:#fff;padding:12px;" />
     <h1>SECP</h1>
-    <p>Zaloguj się kontem Microsoft 365, aby uzyskać dostęp do danych zespołu.</p>
-    <button class="ms-btn" id="login-btn">
+
+    <!-- Email/password login -->
+    <div id="local-login-form" style="width:100%;display:flex;flex-direction:column;gap:8px;">
+      <input type="email" id="local-email" placeholder="E-mail" style="border:1px solid #d3d9e4;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;outline:none;width:100%;background:#fff;color:#1e2a3a;" />
+      <input type="password" id="local-password" placeholder="Hasło" style="border:1px solid #d3d9e4;border-radius:8px;padding:9px 12px;font-size:13px;font-family:inherit;outline:none;width:100%;background:#fff;color:#1e2a3a;" />
+      <button id="local-login-btn" class="ms-btn" style="justify-content:center;width:100%;">Zaloguj się</button>
+      <p id="local-error" style="color:#a4262c;font-size:12px;display:none;text-align:center;"></p>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;width:100%;margin:4px 0;">
+      <div style="flex:1;height:1px;background:#d3d9e4;"></div>
+      <span style="font-size:11px;color:#8c9ab0;">lub</span>
+      <div style="flex:1;height:1px;background:#d3d9e4;"></div>
+    </div>
+
+    <button class="ms-btn" id="login-btn" style="justify-content:center;width:100%;background:#f4f6fa;color:#5a6a80;box-shadow:none;border:1px solid #d3d9e4;">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6.5" height="6.5" fill="#f25022"/><rect x="8.5" y="1" width="6.5" height="6.5" fill="#7fba00"/><rect x="1" y="8.5" width="6.5" height="6.5" fill="#00a4ef"/><rect x="8.5" y="8.5" width="6.5" height="6.5" fill="#ffb900"/></svg>
-      Zaloguj się przez Microsoft
+      Zaloguj przez Microsoft 365
     </button>
     <p id="auth-error" style="color:#a4262c;font-size:12px;display:none;"></p>
+    <p style="font-size:10px;color:#8c9ab0;margin-top:4px;">Autor: Michał Kucia</p>
   </div>
 </div>
 
