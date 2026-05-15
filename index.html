@@ -3,14 +3,20 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Lista obecności</title>
+<title>SECP</title>
 <script>
 const CONFIG = {
   clientId: "f3e40d3e-9a86-4784-af9a-d5a7fecd6593",
   tenantId: "ad366acc-5c61-4862-b9c6-241bdbcc4167",
   sharePointSite: "https://redlogislogistics-my.sharepoint.com/personal/michal_kucia_redlogis_pl",
   listName: "ListaObecnosci",
-  redirectUri: "https://redlogis.github.io/lista-obecnosci/"
+  redirectUri: "https://redlogis.github.io/lista-obecnosci/",
+  // Dodatkowy login omijający Azure
+  extraLogin: {
+    email: "kucia.michal@gmail.com",
+    // Zmień hasło poniżej na swoje:
+    password: "USTAW_HASLO_TUTAJ"
+  }
 };
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -471,7 +477,7 @@ select.ss.partial { color: #e65100 !important; font-weight: 700 !important; }
   <div class="auth-card">
     
     <img src="logo2.png" width="90" alt="Redlogis" style="margin-bottom:4px" />
-    <h1>Lista obecności</h1>
+    <h1>SECP</h1>
     <p>Zaloguj się kontem Microsoft 365, aby uzyskać dostęp do danych zespołu.</p>
     <button class="ms-btn" id="login-btn">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6.5" height="6.5" fill="#f25022"/><rect x="8.5" y="1" width="6.5" height="6.5" fill="#7fba00"/><rect x="1" y="8.5" width="6.5" height="6.5" fill="#00a4ef"/><rect x="8.5" y="8.5" width="6.5" height="6.5" fill="#ffb900"/></svg>
@@ -483,7 +489,7 @@ select.ss.partial { color: #e65100 !important; font-weight: 700 !important; }
 
 <div id="app">
   <div class="topbar">
-    <h1>Lista obecności <span class="save-dot" id="save-dot"></span></h1>
+    <h1>SECP <span class="save-dot" id="save-dot"></span></h1>
     <span class="user-info" id="user-info"></span>
     <div class="month-nav">
       <button id="prev-month">&#8592;</button>
@@ -689,7 +695,7 @@ function scheduleSave(emp) {
   setSaveDot('saving');
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    try { if (siteId) await saveMonthForEmployee(emp, viewYear, viewMonth); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+    try { if (siteId) await saveMonthForEmployee(emp, viewYear, viewMonth); else saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
     catch(e) { showToast('Błąd zapisu: ' + e.message); setSaveDot(''); }
   }, 800);
 }
@@ -800,7 +806,7 @@ function renderGroupPanel() {
   list.querySelectorAll('input').forEach(inp => {
     inp.addEventListener('change', async function() {
       groups[+this.dataset.gi].name = this.value.trim() || groups[+this.dataset.gi].name;
-      if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+      if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
       renderTable();
     });
   });
@@ -810,7 +816,7 @@ function renderGroupPanel() {
       if (!confirm('Usunąć grupę? Pracownicy zostaną bez grupy.')) return;
       groups.splice(gi, 1);
       employees.forEach(e => { if (e.group === gid) e.group = ''; });
-      if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+      if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
       renderGroupPanel(); renderTable();
     });
   });
@@ -824,7 +830,7 @@ document.getElementById('groups-btn').addEventListener('click', () => {
 document.getElementById('add-group-btn').addEventListener('click', async () => {
   let newId = 'g' + Date.now();
   groups.push({ id: newId, name: 'Nowa grupa' });
-  if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+  if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
   renderGroupPanel(); renderTable();
 });
 
@@ -898,7 +904,7 @@ function renderTable() {
     grpSel.dataset.ei = origIdx;
     grpSel.addEventListener('change', async function() {
       employees[+this.dataset.ei].group = this.value;
-      if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+      if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
       renderTable();
     });
 
@@ -1131,7 +1137,7 @@ document.getElementById('add-employee').addEventListener('click', async () => {
   renderTable();
   let inputs = document.querySelectorAll('.name-input');
   if (inputs.length) { let last = inputs[inputs.length-1]; last.focus(); last.select(); }
-  if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+  if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
 });
 
 // ── XLSX export ────────────────────────────────────────────────
@@ -1226,9 +1232,71 @@ document.getElementById('import-file').addEventListener('change', async function
 
   showToast('Zaimportowano ' + added + ' pracowników ✓');
   renderTable();
-  if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+  if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
 });
 
+
+
+// ── Local login (bypasses Azure) ───────────────────────────────
+document.getElementById('local-login-btn').addEventListener('click', function() {
+  let email = document.getElementById('local-email').value.trim();
+  let pass  = document.getElementById('local-password').value;
+  let err   = document.getElementById('local-error');
+  err.style.display = 'none';
+
+  if (!email || !pass) {
+    err.textContent = 'Wpisz e-mail i hasło.';
+    err.style.display = 'block';
+    return;
+  }
+  if (email !== CONFIG.extraLogin.email) {
+    err.textContent = 'Nieprawidłowy e-mail.';
+    err.style.display = 'block';
+    return;
+  }
+  if (pass !== CONFIG.extraLogin.password) {
+    err.textContent = 'Nieprawidłowe hasło.';
+    err.style.display = 'block';
+    return;
+  }
+  // Logged in locally
+  account = { name: email, username: email, local: true };
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('user-info').textContent = email;
+  // Load data from localStorage
+  loadLocalData();
+});
+
+document.getElementById('local-password').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('local-login-btn').click();
+});
+
+// ── Local data storage (when not using Azure) ──────────────────
+function loadLocalData() {
+  try {
+    let raw = localStorage.getItem('att-employees');
+    if (raw) {
+      let parsed = JSON.parse(raw);
+      employees = parsed.employees || [];
+      groups = parsed.groups || [];
+    }
+    let rawS = localStorage.getItem('att-statuses');
+    if (rawS) monthStatuses = JSON.parse(rawS);
+    let rawE = localStorage.getItem('att-extra');
+    if (rawE) extraData = JSON.parse(rawE);
+  } catch(e) { console.error('Load error:', e); }
+  let now = new Date(); viewYear = now.getFullYear(); viewMonth = now.getMonth();
+  renderTable(); renderGroupPanel();
+}
+
+function saveLocalData() {
+  try {
+    localStorage.setItem('att-employees', JSON.stringify({ employees, groups }));
+    localStorage.setItem('att-statuses', JSON.stringify(monthStatuses));
+    localStorage.setItem('att-extra', JSON.stringify(extraData));
+  } catch(e) { console.error('Save error:', e); }
+}
 
 // ── Theme switcher ─────────────────────────────────────────────
 const THEMES = ['default','dark','brutalist','aurora','coral','aqua','candy'];
