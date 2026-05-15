@@ -1,321 +1,507 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>SECP — Dashboard</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SECP</title>
+<script>
+const CONFIG = {
+  clientId: "TWOJ_CLIENT_ID",
+  tenantId: "TWOJ_TENANT_ID",
+  sharePointSite: "https://TWOJAFIRMA.sharepoint.com",
+  listName: "ListaObecnosci",
+  redirectUri: "https://ksm-group.github.io/lista-obecnosci/",
+  // Dodatkowy login omijający Azure
+  extraLogin: {
+    email: "kucia.michal@gmail.com",
+    // Zmień hasło poniżej na swoje:
+    password: "USTAW_HASLO_TUTAJ"
+  }
+};
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.7.1/lib/msal-browser.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
+/* ── Paleta niebiesko-szara ── */
 :root {
-  --bg: #eef1f6; --surface: #fff; --surface2: #f4f6fa;
-  --border: #d3d9e4; --border2: #b8c2d4;
-  --accent: #3a6fc4; --accent2: #2d5ba8; --accent-lt: #e8eef8;
-  --text: #1e2a3a; --text2: #5a6a80; --text3: #8c9ab0;
-  --shadow: rgba(30,42,58,0.10);
-  --green: #1a7a2e; --red: #a4262c; --blue: #1a5fa8;
-  --orange: #e65100; --purple: #6a1b9a; --teal: #00695c;
+  --bg:        #eef1f6;
+  --surface:   #ffffff;
+  --surface2:  #f4f6fa;
+  --border:    #d3d9e4;
+  --border2:   #b8c2d4;
+  --accent:    #3a6fc4;
+  --accent2:   #2d5ba8;
+  --accent-lt: #e8eef8;
+  --text:      #1e2a3a;
+  --text2:     #5a6a80;
+  --text3:     #8c9ab0;
+  --shadow:    rgba(30,42,58,0.10);
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: "Segoe UI", system-ui, Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
-/* Auth */
-#auth-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; gap:18px; background:linear-gradient(145deg,#dce6f5,#eef1f6,#e4ecf8); }
-.auth-card { background:var(--surface); border-radius:16px; padding:40px 48px; box-shadow:0 8px 32px rgba(30,42,58,0.13); display:flex; flex-direction:column; align-items:center; gap:14px; max-width:340px; width:100%; }
-#auth-screen h1 { font-size:22px; font-weight:700; }
-#auth-screen p { font-size:13px; color:var(--text2); text-align:center; line-height:1.5; }
-.ms-btn { background:var(--accent); color:#fff; border:none; border-radius:8px; padding:11px 28px; font-size:14px; cursor:pointer; font-family:inherit; font-weight:600; display:flex; align-items:center; gap:8px; box-shadow:0 2px 8px rgba(58,111,196,0.25); }
-.ms-btn:hover { background:var(--accent2); }
 
-/* App */
-#app { display:none; padding:1rem 1.25rem; }
+/* ── Theme variables ── */
+:root { --theme: 'default'; }
 
-/* Topbar */
-.topbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:1rem; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px 16px; box-shadow:0 2px 8px var(--shadow); }
-.topbar h1 { font-size:16px; font-weight:700; flex:1; display:flex; align-items:center; gap:8px; }
-.topbar h1::before { content:""; display:inline-block; width:20px; height:20px; background:var(--accent); border-radius:5px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='white'%3E%3Crect x='2' y='4' width='7' height='12' rx='1'/%3E%3Crect x='11' y='4' width='7' height='12' rx='1'/%3E%3C/svg%3E"); flex-shrink:0; }
-button.tb { background:var(--surface2); border:1px solid var(--border); border-radius:7px; padding:6px 12px; cursor:pointer; font-size:12px; font-family:inherit; color:var(--text); font-weight:500; }
-button.tb:hover { background:var(--accent-lt); border-color:var(--accent); color:var(--accent); }
-button.tb.active { background:var(--accent); color:#fff; border-color:var(--accent); }
-.user-info { font-size:11px; color:var(--text2); background:var(--surface2); border:1px solid var(--border); border-radius:20px; padding:3px 10px; }
-
-/* Loading */
-#loading { position:fixed; inset:0; background:rgba(238,241,246,0.8); display:flex; align-items:center; justify-content:center; z-index:999; font-size:14px; color:var(--text2); gap:10px; backdrop-filter:blur(2px); }
-#loading.hidden { display:none; }
-.spinner { width:22px; height:22px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; }
-@keyframes spin { to { transform:rotate(360deg); } }
-
-/* Month columns */
-.months-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:1.5rem; }
-@media(max-width:900px) { .months-grid { grid-template-columns:1fr; } }
-
-.month-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; box-shadow:0 2px 10px var(--shadow); }
-.month-card-header { background:linear-gradient(90deg,#2d4a7a,#3a6fc4); color:#fff; padding:10px 16px; display:flex; align-items:center; justify-content:space-between; }
-.month-card-header h2 { font-size:14px; font-weight:700; }
-.month-card-header .wday-count { font-size:11px; opacity:0.8; }
-.month-card-body { padding:0; }
-
-/* Group section */
-.group-section { border-bottom:1px solid var(--border); }
-.group-section:last-child { border-bottom:none; }
-.group-section-header { display:flex; align-items:center; gap:8px; padding:8px 14px; background:var(--surface2); cursor:pointer; user-select:none; }
-.group-section-header:hover { background:var(--accent-lt); }
-.group-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-.group-name { font-size:12px; font-weight:700; color:var(--text); flex:1; text-transform:uppercase; letter-spacing:0.5px; }
-.group-stats { display:flex; gap:8px; }
-.stat-badge { font-size:10px; padding:2px 7px; border-radius:10px; font-weight:600; }
-.stat-badge.present { background:#e6f4ea; color:var(--green); }
-.stat-badge.absent  { background:#fde7e9; color:var(--red); }
-.stat-badge.hours   { background:var(--accent-lt); color:var(--accent); }
-
-/* Employee rows */
-.emp-list { overflow:hidden; }
-.emp-row { display:flex; align-items:center; gap:6px; padding:6px 14px 6px 28px; border-top:1px solid var(--border); font-size:12px; }
-.emp-row:hover { background:#f6f8fd; }
-.emp-name { flex:1; font-weight:500; color:var(--text); }
-.emp-role { font-size:10px; color:var(--text3); background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:1px 6px; white-space:nowrap; }
-.emp-status { font-size:10px; font-weight:600; padding:2px 7px; border-radius:10px; white-space:nowrap; }
-.emp-status.obecny   { background:#e6f4ea; color:var(--green); }
-.emp-status.urlop    { background:#e3f0ff; color:var(--blue); }
-.emp-status.uz       { background:#fde7e9; color:var(--red); }
-.emp-status.nn       { background:#fef3cd; color:#856404; }
-.emp-status.l4       { background:#fce8e8; color:var(--red); }
-.emp-status.opieka   { background:#f3e8ff; color:var(--purple); }
-.emp-status.mixed    { background:#fff3e0; color:var(--orange); }
-.emp-hours { font-size:11px; color:var(--accent); font-weight:700; min-width:36px; text-align:right; }
-.emp-vacation-info { font-size:10px; color:var(--blue); background:#e3f0ff; border-radius:8px; padding:1px 6px; white-space:nowrap; }
-
-/* Summary KPI row */
-.kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:1.5rem; }
-@media(max-width:700px) { .kpi-row { grid-template-columns:repeat(2,1fr); } }
-.kpi-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px 16px; box-shadow:0 2px 8px var(--shadow); display:flex; flex-direction:column; gap:4px; }
-.kpi-label { font-size:11px; color:var(--text2); font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
-.kpi-value { font-size:26px; font-weight:800; color:var(--accent); line-height:1; }
-.kpi-sub { font-size:11px; color:var(--text3); }
-
-/* Charts section */
-.charts-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:1.5rem; }
-@media(max-width:800px) { .charts-row { grid-template-columns:1fr; } }
-.chart-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px; box-shadow:0 2px 10px var(--shadow); }
-.chart-card h3 { font-size:13px; font-weight:700; color:var(--text); margin-bottom:12px; }
-.chart-wrap { position:relative; height:220px; }
-
-/* Absence detail table */
-.absence-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; margin-bottom:1.5rem; overflow:hidden; box-shadow:0 2px 10px var(--shadow); }
-.absence-card-header { background:linear-gradient(90deg,#2d4a7a,#3a6fc4); color:#fff; padding:10px 16px; font-size:14px; font-weight:700; }
-.absence-table { width:100%; border-collapse:collapse; font-size:12px; }
-.absence-table th { background:var(--surface2); color:var(--text2); font-weight:600; font-size:11px; padding:8px 12px; text-align:left; border-bottom:2px solid var(--border2); }
-.absence-table td { padding:7px 12px; border-bottom:1px solid var(--border); color:var(--text); }
-.absence-table tr:last-child td { border-bottom:none; }
-.absence-table tr:hover td { background:#f6f8fd; }
-
-/* Toast */
-.toast { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); background:#1e2a3a; color:#fff; border-radius:8px; padding:10px 22px; font-size:13px; z-index:1000; opacity:0; transition:opacity 0.3s; pointer-events:none; }
-.toast.show { opacity:1; }
-
-/* Back link */
-.back-btn { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--accent); text-decoration:none; background:var(--accent-lt); border:1px solid #c5d5ef; border-radius:7px; padding:5px 12px; font-weight:600; }
-.back-btn:hover { background:var(--accent); color:#fff; }
-
-/* Section title */
-.section-title { font-size:13px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:10px; padding-left:2px; display:flex; align-items:center; gap:8px; }
-.section-title::before { content:""; display:inline-block; width:3px; height:14px; background:var(--accent); border-radius:2px; }
-
-/* Special roles */
-.role-kierownik { color:var(--accent); font-weight:700; }
-.role-koordynator { color:var(--teal); font-weight:600; }
-
-/* ── Themes ── */
 body.theme-dark {
   --bg: #0f1624; --surface: #161c2d; --surface2: #1e2538;
   --border: #1e2d45; --border2: #253550;
   --accent: #00e5ff; --accent2: #00b8d4; --accent-lt: rgba(0,229,255,0.08);
   --text: #e2e8f0; --text2: #94a3b8; --text3: #475569;
   --shadow: rgba(0,0,0,0.4);
-  --green: #34d399; --red: #f87171; --blue: #60a5fa;
-  --orange: #fbbf24; --purple: #a78bfa; --teal: #2dd4bf;
+  --grp-hdr-from: #0a1628; --grp-hdr-to: #0d2040;
+  --grp-hdr-text: #00e5ff;
+  --topbar-bg: #161c2d; --topbar-border: #1e2d45;
+  --kpi-bg: #1e2538; --kpi-border: #253550;
+  --status-ob-bg: rgba(163,230,53,0.12); --status-ob-text: #a3e635;
+  --status-url-bg: rgba(56,189,248,0.12); --status-url-text: #38bdf8;
+  --status-uz-bg: rgba(248,113,113,0.12); --status-uz-text: #f87171;
+  --status-nn-bg: rgba(251,191,36,0.12); --status-nn-text: #fbbf24;
+  --status-l4-bg: rgba(248,113,113,0.12); --status-l4-text: #f87171;
+  --status-op-bg: rgba(167,139,250,0.12); --status-op-text: #a78bfa;
+  --hours-color: #00e5ff;
 }
-body.theme-dark #auth-screen { background: linear-gradient(145deg,#0a1220,#0f1624,#0d1e30); }
-body.theme-dark .auth-card { background: #161c2d; border: 1px solid #1e2d45; }
-body.theme-dark .topbar { background: #161c2d; border-color: #253550; }
-body.theme-dark .topbar h1 { color: #f1f5f9; }
-body.theme-dark .month-card { background: #161c2d; border-color: #253550; }
-body.theme-dark .month-card-header { background: linear-gradient(90deg,#0d2040,#1a3a6a); }
-body.theme-dark .month-card-header h2 { color: #e2e8f0; font-size: 15px; }
-body.theme-dark .month-card-header .wday-count { color: #94a3b8; }
-body.theme-dark .group-section-header { background: #1a2235; }
-body.theme-dark .group-section-header:hover { background: #1e2a40; }
-body.theme-dark .group-name { color: #cbd5e1; }
-body.theme-dark .group-section { border-color: #253550; }
-body.theme-dark .emp-row { border-color: #1e2d45; }
-body.theme-dark .emp-row:hover { background: #1e2a40; }
-body.theme-dark .emp-name { color: #e2e8f0 !important; font-weight: 500; }
-body.theme-dark .emp-role { background: #253550; border-color: #2d4060; color: #94a3b8; }
-body.theme-dark .emp-hours { color: #00e5ff !important; }
-body.theme-dark .emp-vacation-info { background: #1a3050; color: #60a5fa; border: none; }
-body.theme-dark .stat-badge.present { background: rgba(52,211,153,0.15); color: #34d399; }
-body.theme-dark .stat-badge.absent  { background: rgba(248,113,113,0.15); color: #f87171; }
-body.theme-dark .stat-badge.hours   { background: rgba(0,229,255,0.1); color: #00e5ff; }
-body.theme-dark .kpi-card { background: #1a2235; border-color: #253550; }
-body.theme-dark .kpi-label { color: #64748b; }
-body.theme-dark .kpi-value { color: #00e5ff; font-size: 30px; }
-body.theme-dark .kpi-sub { color: #475569; }
-body.theme-dark .chart-card { background: #161c2d; border-color: #253550; }
-body.theme-dark .chart-card h3 { color: #cbd5e1; }
-body.theme-dark .absence-card { border-color: #253550; }
-body.theme-dark .absence-card-header { background: linear-gradient(90deg,#0d2040,#1a3a6a); }
-body.theme-dark .absence-table { background: #161c2d; }
-body.theme-dark .absence-table th { background: #1a2235; color: #64748b; border-color: #253550; }
-body.theme-dark .absence-table td { border-color: #1e2d45; color: #cbd5e1; }
-body.theme-dark .absence-table tr:hover td { background: #1e2a40; }
-body.theme-dark .user-info { background: rgba(255,255,255,0.06); border-color: #253550; color: #94a3b8; }
-body.theme-dark button.tb { background: rgba(255,255,255,0.04); border-color: #253550; color: #94a3b8; }
-body.theme-dark button.tb:hover { background: rgba(0,229,255,0.08); color: #00e5ff; border-color: rgba(0,229,255,0.3); }
-body.theme-dark .back-btn { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.2); color: #00e5ff; }
-body.theme-dark .section-title { color: #64748b; }
-body.theme-dark .section-title::before { background: #00e5ff; }
-body.theme-dark .toast { background: #1e2538; color: #e2e8f0; }
-body.theme-dark .emp-status.obecny   { background: rgba(52,211,153,0.15); color: #34d399; }
-body.theme-dark .emp-status.urlop    { background: rgba(96,165,250,0.15); color: #60a5fa; }
-body.theme-dark .emp-status.uz       { background: rgba(248,113,113,0.15); color: #f87171; }
-body.theme-dark .emp-status.nn       { background: rgba(251,191,36,0.15); color: #fbbf24; }
-body.theme-dark .emp-status.l4       { background: rgba(248,113,113,0.15); color: #f87171; }
-body.theme-dark .emp-status.opieka   { background: rgba(167,139,250,0.15); color: #a78bfa; }
-body.theme-dark .emp-status.mixed    { background: rgba(251,191,36,0.15); color: #fbbf24; }
 
 body.theme-brutalist {
-  --bg: #fffbf5; --surface: #fff; --surface2: #f5f5f5;
+  --bg: #fffbf5; --surface: #ffffff; --surface2: #f5f5f5;
   --border: #1a1a1a; --border2: #1a1a1a;
   --accent: #ff6b2b; --accent2: #e55a1e; --accent-lt: rgba(255,107,43,0.08);
-  --text: #1a1a1a; --text2: #555; --text3: #999; --shadow: rgba(0,0,0,0.2);
+  --text: #1a1a1a; --text2: #555; --text3: #999;
+  --shadow: rgba(0,0,0,0.2);
+  --grp-hdr-from: #1a1a1a; --grp-hdr-to: #1a1a1a;
+  --grp-hdr-text: #fff;
+  --topbar-bg: #fff; --topbar-border: #1a1a1a;
+  --kpi-bg: #fff; --kpi-border: #1a1a1a;
+  --status-ob-bg: #d1fae5; --status-ob-text: #065f46;
+  --status-url-bg: #dbeafe; --status-url-text: #1e40af;
+  --status-uz-bg: #fee2e2; --status-uz-text: #7f1d1d;
+  --status-nn-bg: #fef9c3; --status-nn-text: #713f12;
+  --status-l4-bg: #fee2e2; --status-l4-text: #7f1d1d;
+  --status-op-bg: #f3e8ff; --status-op-text: #4a1d96;
+  --hours-color: #ff6b2b;
 }
-body.theme-brutalist .topbar { border: 2px solid #1a1a1a; border-radius: 0; box-shadow: 4px 4px 0 #1a1a1a; }
-body.theme-brutalist .month-card { border: 2px solid #1a1a1a; border-radius: 0; box-shadow: 4px 4px 0 #1a1a1a; }
-body.theme-brutalist .month-card-header { background: #1a1a1a; }
-body.theme-brutalist .kpi-card { border: 2px solid #1a1a1a; border-radius: 0; box-shadow: 3px 3px 0 #ff6b2b; }
-body.theme-brutalist .kpi-value { color: #ff6b2b; }
-body.theme-brutalist .chart-card { border: 2px solid #1a1a1a; border-radius: 0; }
-body.theme-brutalist .absence-card { border: 2px solid #1a1a1a; border-radius: 0; }
-body.theme-brutalist button.tb { border: 2px solid #1a1a1a; border-radius: 0; font-weight: 700; text-transform: uppercase; }
-body.theme-brutalist button.tb:hover { background: #1a1a1a; color: #fff; }
-body.theme-brutalist .back-btn { border: 2px solid #ff6b2b; border-radius: 0; color: #ff6b2b; background: #fff; }
-body.theme-brutalist .section-title::before { background: #ff6b2b; }
-body.theme-brutalist .group-section-header { border-left: 3px solid #ff6b2b; }
 
 body.theme-aurora {
   --bg: #f5f0ff; --surface: rgba(255,255,255,0.85); --surface2: rgba(255,255,255,0.6);
   --border: rgba(139,92,246,0.2); --border2: rgba(139,92,246,0.35);
   --accent: #8b5cf6; --accent2: #7c3aed; --accent-lt: rgba(139,92,246,0.1);
-  --text: #1e1b4b; --text2: #6b7280; --text3: #9ca3af; --shadow: rgba(139,92,246,0.12);
+  --text: #1e1b4b; --text2: #6b7280; --text3: #9ca3af;
+  --shadow: rgba(139,92,246,0.12);
+  --grp-hdr-from: #8b5cf6; --grp-hdr-to: #06b6d4;
+  --grp-hdr-text: #fff;
+  --topbar-bg: rgba(255,255,255,0.8); --topbar-border: rgba(139,92,246,0.2);
+  --kpi-bg: rgba(255,255,255,0.7); --kpi-border: rgba(255,255,255,0.9);
+  --status-ob-bg: rgba(16,185,129,0.12); --status-ob-text: #065f46;
+  --status-url-bg: rgba(139,92,246,0.12); --status-url-text: #4c1d95;
+  --status-uz-bg: rgba(239,68,68,0.1); --status-uz-text: #7f1d1d;
+  --status-nn-bg: rgba(245,158,11,0.1); --status-nn-text: #78350f;
+  --status-l4-bg: rgba(239,68,68,0.1); --status-l4-text: #7f1d1d;
+  --status-op-bg: rgba(139,92,246,0.12); --status-op-text: #4c1d95;
+  --hours-color: #8b5cf6;
 }
-body.theme-aurora { background: linear-gradient(135deg,#f5f0ff,#f0f7ff,#f0fff7); }
-body.theme-aurora .topbar { background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); border-radius: 16px; border-color: rgba(139,92,246,0.2); }
-body.theme-aurora .month-card { border-radius: 16px; border-color: rgba(139,92,246,0.15); background: rgba(255,255,255,0.75); }
-body.theme-aurora .month-card-header { background: linear-gradient(90deg,#8b5cf6,#06b6d4); border-radius: 16px 16px 0 0; }
-body.theme-aurora .kpi-card { background: rgba(255,255,255,0.7); border-color: rgba(139,92,246,0.15); border-radius: 14px; }
-body.theme-aurora .kpi-value { color: #8b5cf6; }
-body.theme-aurora .chart-card { background: rgba(255,255,255,0.75); border-radius: 16px; border-color: rgba(139,92,246,0.15); }
-body.theme-aurora .absence-card { border-radius: 16px; border-color: rgba(139,92,246,0.15); }
+
+/* ── Theme-aware overrides ── */
+body.theme-dark .topbar { background: var(--topbar-bg); border-color: var(--topbar-border); box-shadow: 0 2px 12px var(--shadow); }
+body.theme-dark .topbar h1::before { background: linear-gradient(135deg, #00e5ff, #818cf8); }
+body.theme-dark .month-label { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.2); color: #00e5ff; }
+body.theme-dark .month-nav button { background: rgba(0,229,255,0.05); border-color: rgba(0,229,255,0.15); color: #00e5ff; }
+body.theme-dark button.tb { background: rgba(255,255,255,0.04); border-color: var(--border); color: var(--text2); }
+body.theme-dark button.tb:hover { background: var(--accent-lt); border-color: rgba(0,229,255,0.3); color: var(--accent); }
+body.theme-dark button.tb.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
+body.theme-dark .table-wrap { border-color: var(--border); }
+body.theme-dark thead th { background: #1a2235; color: #475569; border-color: var(--border); }
+body.theme-dark thead th:nth-child(1), body.theme-dark thead th:nth-child(2) { background: #1a2235; }
+body.theme-dark thead th.col-we { background: #161f30 !important; }
+body.theme-dark thead th.col-hol { background: #1e1520 !important; color: #f87171; }
+body.theme-dark td.col-we { background: #131a28 !important; }
+body.theme-dark td.col-hol { background: #1a1020 !important; }
+body.theme-dark tbody td { border-color: var(--border); }
+body.theme-dark tbody td:nth-child(1), body.theme-dark tbody td:nth-child(2) { background: var(--surface); }
+body.theme-dark tbody tr:hover td { background: rgba(0,229,255,0.04) !important; }
+body.theme-dark tr.group-header td { background: linear-gradient(90deg, var(--grp-hdr-from), var(--grp-hdr-to)) !important; color: var(--grp-hdr-text) !important; border-color: #0a1628; }
+body.theme-dark tr.group-header td:nth-child(1), body.theme-dark tr.group-header td:nth-child(2) { background: var(--grp-hdr-from) !important; }
+body.theme-dark #group-panel { background: var(--surface); border-color: var(--border); }
+body.theme-dark .group-chip { background: var(--surface2); border-color: var(--border); }
+body.theme-dark .auth-card { background: var(--surface); }
+body.theme-dark #auth-screen { background: linear-gradient(145deg, #0a1220, #0f1624, #0d1e30); }
+
+body.theme-brutalist .topbar { background: var(--topbar-bg); border: 2px solid var(--border); border-radius: 0; box-shadow: 4px 4px 0 #1a1a1a; }
+body.theme-brutalist .topbar h1::before { background: #ff6b2b; border-radius: 2px; }
+body.theme-brutalist .month-label { background: #fff3ee; border: 2px solid #ff6b2b; border-radius: 0; color: #ff6b2b; font-weight: 900; }
+body.theme-brutalist .month-nav button { background: #fff; border: 2px solid #1a1a1a; border-radius: 0; color: #1a1a1a; font-weight: 700; }
+body.theme-brutalist button.tb { border: 2px solid #1a1a1a; border-radius: 0; font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+body.theme-brutalist button.tb:hover { background: #1a1a1a; color: #fff; }
+body.theme-brutalist button.tb.primary { background: #ff6b2b; border-color: #ff6b2b; color: #fff; }
+body.theme-brutalist .table-wrap { border: 2px solid #1a1a1a; border-radius: 0; }
+body.theme-brutalist thead th { background: #f5f5f5; color: #666; border-bottom: 2px solid #1a1a1a; border-radius: 0; }
+body.theme-brutalist thead th:nth-child(1), body.theme-brutalist thead th:nth-child(2) { background: #f5f5f5; }
+body.theme-brutalist tr.group-header td { background: #1a1a1a !important; color: #fff !important; }
+body.theme-brutalist tr.group-header td:nth-child(1), body.theme-brutalist tr.group-header td:nth-child(2) { background: #1a1a1a !important; }
+body.theme-brutalist .table-wrap { box-shadow: 4px 4px 0 #1a1a1a; }
+
+body.theme-aurora { background: linear-gradient(135deg, #f5f0ff 0%, #f0f7ff 50%, #f0fff7 100%); }
+body.theme-aurora .topbar { background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); border-radius: 16px; }
+body.theme-aurora .topbar h1::before { background: linear-gradient(135deg, #8b5cf6, #06b6d4); }
+body.theme-aurora .month-label { background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.25); color: #7c3aed; border-radius: 20px; }
+body.theme-aurora .month-nav button { background: rgba(139,92,246,0.08); border-color: rgba(139,92,246,0.2); color: #7c3aed; border-radius: 20px; }
 body.theme-aurora button.tb { border-radius: 20px; border-color: rgba(139,92,246,0.2); color: #7c3aed; background: rgba(139,92,246,0.06); }
-body.theme-aurora button.tb:hover { background: rgba(139,92,246,0.15); }
-body.theme-aurora .back-btn { border-radius: 20px; color: #7c3aed; background: rgba(139,92,246,0.08); border-color: rgba(139,92,246,0.25); }
-body.theme-aurora .section-title::before { background: linear-gradient(135deg,#8b5cf6,#06b6d4); }
-body.theme-aurora .group-section-header:hover { background: rgba(139,92,246,0.06); }
+body.theme-aurora button.tb:hover { background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.4); }
+body.theme-aurora button.tb.primary { background: linear-gradient(135deg, #8b5cf6, #06b6d4); border-color: transparent; color: #fff; border-radius: 20px; }
+body.theme-aurora .table-wrap { border-radius: 16px; border-color: rgba(139,92,246,0.15); }
+body.theme-aurora thead th { background: linear-gradient(180deg, rgba(139,92,246,0.08), rgba(6,182,212,0.06)); color: #9ca3af; border-color: rgba(139,92,246,0.1); }
+body.theme-aurora thead th:nth-child(1), body.theme-aurora thead th:nth-child(2) { background: linear-gradient(180deg, rgba(139,92,246,0.1), rgba(6,182,212,0.07)); }
+body.theme-aurora tr.group-header td { background: linear-gradient(90deg, #8b5cf6, #06b6d4) !important; color: #fff !important; }
+body.theme-aurora tr.group-header td:nth-child(1), body.theme-aurora tr.group-header td:nth-child(2) { background: #8b5cf6 !important; }
+body.theme-aurora tbody tr:hover td { background: rgba(139,92,246,0.05) !important; }
+
+body.theme-dark {
+  --g0-bg: rgba(58,111,196,0.12); --g1-bg: rgba(16,185,129,0.1);
+  --g2-bg: rgba(139,92,246,0.1); --g3-bg: rgba(251,191,36,0.1);
+  --g4-bg: rgba(6,182,212,0.1); --g5-bg: rgba(248,113,113,0.1);
+  --g6-bg: rgba(52,211,153,0.1); --g7-bg: rgba(163,230,53,0.08);
+}
+body.theme-aurora {
+  --g0-bg: rgba(139,92,246,0.08); --g1-bg: rgba(6,182,212,0.08);
+  --g2-bg: rgba(16,185,129,0.08); --g3-bg: rgba(245,158,11,0.08);
+  --g4-bg: rgba(59,130,246,0.08); --g5-bg: rgba(239,68,68,0.06);
+  --g6-bg: rgba(20,184,166,0.08); --g7-bg: rgba(139,92,246,0.06);
+}
+body.theme-brutalist {
+  --g0-bg: #f5f5f5; --g1-bg: #f5f5f5; --g2-bg: #f5f5f5; --g3-bg: #f5f5f5;
+  --g4-bg: #f5f5f5; --g5-bg: #f5f5f5; --g6-bg: #f5f5f5; --g7-bg: #f5f5f5;
+}
+
+body.theme-dark input.hours-inp { color: var(--text); }
+body.theme-dark input.hours-inp:focus { background: rgba(255,255,255,0.08); border-color: var(--accent); }
+body.theme-dark select.ss { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394a3b8'/%3E%3C/svg%3E"); }
+body.theme-dark select.grp-sel { color: var(--text3); }
+body.theme-dark .name-input { color: var(--text); }
+body.theme-dark .del-btn { color: var(--text3); }
+body.theme-dark .del-btn:hover { color: #f87171; background: rgba(248,113,113,0.1); }
+body.theme-dark .save-dot { background: #2d3748; }
+body.theme-dark .save-dot.saving { background: #fbbf24; }
+body.theme-dark .save-dot.saved { background: #34d399; }
+body.theme-dark .toast { background: #1e2538; border: 1px solid #2d3a55; }
+body.theme-dark #group-panel h3 { color: var(--text); }
+body.theme-dark .group-chip input { color: var(--text); }
+body.theme-dark .user-info { background: rgba(255,255,255,0.06); border-color: var(--border); }
+body.theme-dark td[data-sumrow] { color: #00e5ff !important; }
+body.theme-brutalist td[data-sumrow] { color: #ff6b2b !important; }
+body.theme-aurora td[data-sumrow] { color: #8b5cf6 !important; }
+
+body.theme-aurora #group-panel { border-radius: 16px; border-color: rgba(139,92,246,0.2); }
+body.theme-aurora #auth-screen { background: linear-gradient(135deg, #f5f0ff, #f0f7ff, #f0fff7); }
+
+/* Theme-aware status pills */
+select.ss.obecny { color: var(--status-ob-text, #1a7a2e); }
+select.ss.uz     { color: var(--status-uz-text, #a4262c); }
+select.ss.urlop  { color: var(--status-url-text, #1a5fa8); }
+select.ss.nn     { color: var(--status-nn-text, #5a4a00); }
+select.ss.l4     { color: var(--status-l4-text, #8b1a1a); }
+select.ss.opieka { color: var(--status-op-text, #5a3580); }
 
 /* Theme switcher */
 .theme-switcher { display: flex; align-items: center; gap: 6px; }
-.theme-btn { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform 0.15s; flex-shrink: 0; }
+.theme-btn { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform 0.15s, border-color 0.15s; flex-shrink: 0; }
 .theme-btn:hover { transform: scale(1.15); }
 .theme-btn.active { border-color: var(--text); transform: scale(1.1); }
-.theme-btn[data-theme="default"] { background: linear-gradient(135deg,#3a6fc4,#eef1f6); }
-.theme-btn[data-theme="dark"]    { background: linear-gradient(135deg,#0f1624,#00e5ff); }
-.theme-btn[data-theme="brutalist"]{ background: linear-gradient(135deg,#1a1a1a,#ff6b2b); }
-.theme-btn[data-theme="aurora"]  { background: linear-gradient(135deg,#8b5cf6,#06b6d4); }
-.theme-btn[data-theme="coral"]    { background: linear-gradient(135deg,#ff6b35,#f7931e); }
-.theme-btn[data-theme="aqua"]     { background: linear-gradient(135deg,#0d9488,#06b6d4); }
-.theme-btn[data-theme="candy"]    { background: linear-gradient(135deg,#d946ef,#a855f7); }
+.theme-btn[data-theme="default"] { background: linear-gradient(135deg, #3a6fc4, #eef1f6); }
+.theme-btn[data-theme="dark"]    { background: linear-gradient(135deg, #0f1624, #00e5ff); }
+.theme-btn[data-theme="brutalist"]{ background: linear-gradient(135deg, #1a1a1a, #ff6b2b); }
+.theme-btn[data-theme="aurora"]  { background: linear-gradient(135deg, #8b5cf6, #06b6d4); }
+.theme-btn[data-theme="coral"]    { background: linear-gradient(135deg, #ff6b35, #f7931e); }
+.theme-btn[data-theme="aqua"]     { background: linear-gradient(135deg, #0d9488, #06b6d4); }
+.theme-btn[data-theme="candy"]    { background: linear-gradient(135deg, #d946ef, #a855f7); }
 .theme-switcher-label { font-size: 10px; color: var(--text3); font-weight: 500; }
 
+/* Hours color override */
+td[data-sumrow] { color: var(--hours-color, var(--accent)) !important; }
 
-body.theme-coral { background: #fff8f5; --accent: #ff6b35; --text: #2d1a0e; --text2: #6b4a3a; --surface: #fff; --border: #ffd5c2; }
-body.theme-coral .topbar { background: #fff; border-color: #ffd5c2; }
-body.theme-coral .topbar h1 { color: #2d1a0e; }
-body.theme-coral .month-card { background: #fff; border-color: #ffd5c2; }
-body.theme-coral .month-card-header { background: linear-gradient(90deg,#ff6b35,#f7931e); }
-body.theme-coral .kpi-card { background: #fff; border-color: #ffd5c2; }
-body.theme-coral .kpi-value { color: #ff6b35; }
-body.theme-coral .chart-card { background: #fff; border-color: #ffd5c2; }
-body.theme-coral .absence-card { border-color: #ffd5c2; }
-body.theme-coral .absence-card-header { background: linear-gradient(90deg,#ff6b35,#f7931e); }
-body.theme-coral .absence-table th { background: #fff8f5; border-color: #ffd5c2; }
-body.theme-coral button.tb { background: #fff3ee; border-color: #ffd5c2; color: #d94f0a; }
-body.theme-coral button.tb:hover { background: #ffe8d8; color: #ff6b35; }
-body.theme-coral .back-btn { background: #fff3ee; border-color: #ffd5c2; color: #ff6b35; }
-body.theme-coral .group-section-header { background: #fff8f5; }
-body.theme-coral .emp-hours { color: #ff6b35 !important; }
-body.theme-coral .stat-badge.hours { background: #fff3ee; color: #ff6b35; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Segoe UI", system-ui, Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
-body.theme-aqua { background: #f0fdfc; --accent: #0d9488; --text: #0f3d3a; --text2: #2d6e6a; --surface: #fff; --border: #99f6e4; }
-body.theme-aqua .topbar { background: #fff; border-color: #99f6e4; }
-body.theme-aqua .topbar h1 { color: #0f3d3a; }
-body.theme-aqua .month-card { background: #fff; border-color: #99f6e4; }
-body.theme-aqua .month-card-header { background: linear-gradient(90deg,#0d9488,#06b6d4); }
-body.theme-aqua .kpi-card { background: #fff; border-color: #99f6e4; }
-body.theme-aqua .kpi-value { color: #0d9488; }
-body.theme-aqua .chart-card { background: #fff; border-color: #99f6e4; }
-body.theme-aqua .absence-card { border-color: #99f6e4; }
-body.theme-aqua .absence-card-header { background: linear-gradient(90deg,#0d9488,#06b6d4); }
-body.theme-aqua .absence-table th { background: #f0fdfc; border-color: #99f6e4; }
-body.theme-aqua button.tb { background: #f0fdfc; border-color: #99f6e4; color: #0f766e; }
-body.theme-aqua button.tb:hover { background: #ccfbf1; color: #0d9488; }
-body.theme-aqua .back-btn { background: #f0fdfc; border-color: #99f6e4; color: #0d9488; }
-body.theme-aqua .group-section-header { background: #f0fdfc; }
-body.theme-aqua .emp-hours { color: #0d9488 !important; }
-body.theme-aqua .stat-badge.hours { background: #f0fdfc; color: #0d9488; }
+/* ── Auth screen ── */
+#auth-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 100vh; gap: 18px;
+  background: linear-gradient(145deg, #dce6f5 0%, #eef1f6 60%, #e4ecf8 100%);
+}
+.auth-card {
+  background: var(--surface); border-radius: 16px; padding: 40px 48px;
+  box-shadow: 0 8px 32px rgba(30,42,58,0.13); display: flex; flex-direction: column;
+  align-items: center; gap: 14px; max-width: 340px; width: 100%;
+}
+#auth-screen h1 { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.3px; }
+#auth-screen p { font-size: 13px; color: var(--text2); text-align: center; line-height: 1.5; }
+.ms-btn {
+  background: var(--accent); color: #fff; border: none; border-radius: 8px;
+  padding: 11px 28px; font-size: 14px; cursor: pointer; font-family: inherit; font-weight: 600;
+  display: flex; align-items: center; gap: 8px; transition: background 0.15s, transform 0.1s;
+  box-shadow: 0 2px 8px rgba(58,111,196,0.25);
+}
+.ms-btn:hover { background: var(--accent2); transform: translateY(-1px); }
 
-body.theme-candy { background: #fdf2ff; --accent: #d946ef; --text: #3b0764; --text2: #6b3074; --surface: #fff; --border: #f0abfc; }
-body.theme-candy .topbar { background: #fff; border-color: #f0abfc; }
-body.theme-candy .topbar h1 { color: #3b0764; }
-body.theme-candy .month-card { background: #fff; border-color: #f0abfc; }
-body.theme-candy .month-card-header { background: linear-gradient(90deg,#d946ef,#a855f7); }
-body.theme-candy .kpi-card { background: #fff; border-color: #f0abfc; }
-body.theme-candy .kpi-value { color: #d946ef; }
-body.theme-candy .chart-card { background: #fff; border-color: #f0abfc; }
-body.theme-candy .absence-card { border-color: #f0abfc; }
-body.theme-candy .absence-card-header { background: linear-gradient(90deg,#d946ef,#a855f7); }
-body.theme-candy .absence-table th { background: #fdf4ff; border-color: #f0abfc; }
-body.theme-candy button.tb { background: #fdf4ff; border-color: #f0abfc; color: #a21caf; border-radius: 20px; }
-body.theme-candy button.tb:hover { background: #fae8ff; color: #d946ef; }
-body.theme-candy .back-btn { background: #fdf4ff; border-color: #f0abfc; color: #d946ef; border-radius: 20px; }
-body.theme-candy .group-section-header { background: #fdf4ff; }
-body.theme-candy .emp-hours { color: #d946ef !important; }
-body.theme-candy .stat-badge.hours { background: #fdf4ff; color: #d946ef; }
+/* ── App wrapper ── */
+#app { display: none; max-width: 100%; padding: 1rem 1.25rem; }
+
+/* ── Topbar ── */
+.topbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 1rem; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 10px 16px; box-shadow: 0 2px 8px var(--shadow);
+}
+.topbar h1 {
+  font-size: 16px; font-weight: 700; flex: 1; color: var(--text);
+  letter-spacing: -0.2px;
+  display: flex; align-items: center; gap: 8px;
+}
+.topbar h1::before {
+  content: ""; display: inline-block; width: 20px; height: 20px;
+  background: var(--accent); border-radius: 5px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='white'%3E%3Crect x='2' y='3' width='16' height='2' rx='1'/%3E%3Crect x='2' y='7' width='16' height='2' rx='1'/%3E%3Crect x='2' y='11' width='10' height='2' rx='1'/%3E%3C/svg%3E");
+  flex-shrink: 0;
+}
+.user-info {
+  font-size: 11px; color: var(--text2);
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 3px 10px;
+}
+
+button.tb {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
+  padding: 6px 12px; cursor: pointer; font-size: 12px; font-family: inherit;
+  color: var(--text); transition: all 0.12s; font-weight: 500;
+}
+button.tb:hover { background: var(--accent-lt); border-color: var(--accent); color: var(--accent); }
+button.tb.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; box-shadow: 0 2px 6px rgba(58,111,196,0.2); }
+button.tb.primary:hover { background: var(--accent2); }
+button.tb.success { background: #2e7d52; color: #fff; border-color: #2e7d52; font-weight: 600; }
+button.tb.success:hover { background: #1f5c3a; }
+
+/* ── Month nav ── */
+.month-nav { display: flex; align-items: center; gap: 6px; }
+.month-nav button {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
+  padding: 5px 10px; cursor: pointer; font-size: 13px; color: var(--accent); font-weight: 600;
+  transition: all 0.12s;
+}
+.month-nav button:hover { background: var(--accent-lt); border-color: var(--accent); }
+.month-label {
+  font-size: 13px; font-weight: 700; min-width: 140px; text-align: center;
+  color: var(--text); background: var(--accent-lt); border-radius: 6px;
+  padding: 4px 10px; border: 1px solid #c5d5ef;
+}
+
+/* ── Loading ── */
+#loading { position: fixed; inset: 0; background: rgba(238,241,246,0.8); display: flex; align-items: center; justify-content: center; z-index: 999; font-size: 14px; color: var(--text2); gap: 10px; backdrop-filter: blur(2px); }
+#loading.hidden { display: none; }
+.spinner { width: 22px; height: 22px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Table ── */
+.table-wrap {
+  overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 160px);
+  border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
+  box-shadow: 0 2px 12px var(--shadow);
+}
+table { border-collapse: collapse; min-width: 100%; font-size: 12px; }
+
+thead th {
+  background: linear-gradient(180deg, #dce6f5 0%, #cfd9ee 100%);
+  font-weight: 700; font-size: 11px; color: var(--text2);
+  padding: 8px 5px; text-align: center; white-space: nowrap;
+  border-bottom: 2px solid var(--border2); border-right: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 2;
+}
+thead th:nth-child(1) {
+  width: 36px; min-width: 36px; position: sticky; left: 0; top: 0; z-index: 4;
+  background: linear-gradient(180deg, #dce6f5 0%, #cfd9ee 100%);
+}
+thead th:nth-child(2) {
+  text-align: left; min-width: 200px; position: sticky; left: 36px; top: 0; z-index: 4;
+  background: linear-gradient(180deg, #dce6f5 0%, #cfd9ee 100%);
+  border-right: 2px solid var(--border2);
+  box-shadow: 3px 0 6px -2px var(--shadow);
+}
+
+/* weekend & holiday columns */
+thead th.col-we  { background: linear-gradient(180deg, #e4e8f0 0%, #d8dde8 100%) !important; color: var(--text3); }
+thead th.col-hol { background: linear-gradient(180deg, #f5dede 0%, #eecfcf 100%) !important; color: #a4262c; font-weight: 700; }
+td.col-we  { background: #f0f3f8 !important; }
+td.col-hol { background: #fdf0f0 !important; }
+
+tbody td {
+  padding: 3px 4px; text-align: center; color: var(--text);
+  border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
+}
+tbody td:nth-child(1) {
+  font-size: 11px; color: var(--text3); font-weight: 600; text-align: center;
+  position: sticky; left: 0; z-index: 1;
+  background: var(--surface); border-right: 1px solid var(--border);
+}
+tbody td:nth-child(2) {
+  text-align: left; padding: 3px 8px; position: sticky; left: 36px; z-index: 1;
+  background: var(--surface); border-right: 2px solid var(--border2);
+  box-shadow: 3px 0 6px -2px var(--shadow);
+}
+tbody tr:hover td { background: #f0f4fb !important; }
+tbody tr:last-child td { border-bottom: none; }
+
+/* ── Group header row ── */
+tr.group-header td {
+  background: linear-gradient(90deg, #2d4a7a 0%, #3a6fc4 100%) !important;
+  color: #fff !important; font-weight: 700; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.8px;
+  padding: 6px 10px; border-bottom: 2px solid #1e3a6a;
+  border-right: 1px solid #3a5a9a;
+}
+tr.group-header td:nth-child(1) { background: linear-gradient(90deg, #2d4a7a 0%, #2d4a7a 100%) !important; }
+tr.group-header td:nth-child(2) { background: linear-gradient(90deg, #2d4a7a 0%, #3460b8 100%) !important; box-shadow: none; }
+
+/* ── Group row colors (niebiesko-szara paleta) ── */
+tr.g0 td:nth-child(1), tr.g0 td:nth-child(2) { background: var(--g0-bg, #e8f0fb); }
+tr.g1 td:nth-child(1), tr.g1 td:nth-child(2) { background: var(--g1-bg, #e4f0ec); }
+tr.g2 td:nth-child(1), tr.g2 td:nth-child(2) { background: var(--g2-bg, #f0eaf8); }
+tr.g3 td:nth-child(1), tr.g3 td:nth-child(2) { background: var(--g3-bg, #fdf3e4); }
+tr.g4 td:nth-child(1), tr.g4 td:nth-child(2) { background: var(--g4-bg, #e4eef5); }
+tr.g5 td:nth-child(1), tr.g5 td:nth-child(2) { background: var(--g5-bg, #f5e8e8); }
+tr.g6 td:nth-child(1), tr.g6 td:nth-child(2) { background: var(--g6-bg, #e8f5f0); }
+tr.g7 td:nth-child(1), tr.g7 td:nth-child(2) { background: var(--g7-bg, #f0f0e8); }
+
+/* ── Name cell ── */
+.name-cell { display: flex; align-items: center; gap: 4px; }
+.name-input {
+  border: none; background: transparent; font-size: 12px; color: var(--text);
+  font-family: inherit; width: 118px; outline: none; padding: 2px 4px; border-radius: 4px;
+}
+.name-input:focus { background: rgba(255,255,255,0.9); border: 1px solid var(--accent); }
+.del-btn { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 12px; padding: 1px 3px; border-radius: 4px; flex-shrink: 0; }
+.del-btn:hover { color: #a4262c; background: #fde7e9; }
+
+/* ── Group selector ── */
+select.grp-sel {
+  border: none; background: transparent; font-family: inherit; cursor: pointer;
+  font-size: 10px; padding: 1px 2px; border-radius: 3px; outline: none;
+  color: var(--text3); max-width: 62px; -webkit-appearance: none; appearance: none;
+}
+select.grp-sel:focus { background: rgba(255,255,255,0.8); }
+
+/* ── Status select ── */
+select.ss {
+  border: none; background: transparent; font-family: inherit; cursor: pointer;
+  padding: 3px 16px 3px 3px; border-radius: 4px; outline: none;
+  width: 80px; font-size: 10px;
+  -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%238c9ab0'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 3px center;
+}
+select.ss:focus { background-color: rgba(255,255,255,0.85); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%238c9ab0'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 3px center; }
+select.ss.obecny  { color: #1a7a2e; font-weight: 600; }
+select.ss.uz      { color: #a4262c; font-weight: 600; }
+select.ss.urlop   { color: #1a5fa8; font-weight: 600; }
+select.ss.nn      { color: #5a4a00; font-weight: 700; font-size: 9px; }
+select.ss.l4      { color: #8b1a1a; font-weight: 600; font-size: 9px; }
+select.ss.opieka  { color: #5a3580; font-weight: 600; font-size: 9px; }
+
+/* ── Save dot ── */
+.save-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); display: inline-block; margin-left: 6px; transition: background 0.3s; vertical-align: middle; }
+.save-dot.saving { background: #e6a817; }
+.save-dot.saved  { background: #2e7d52; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+  background: #1e2a3a; color: #fff; border-radius: 8px;
+  padding: 10px 22px; font-size: 13px; z-index: 1000;
+  opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  box-shadow: 0 4px 16px rgba(30,42,58,0.25);
+}
+.toast.show { opacity: 1; }
+
+/* ── Group panel ── */
+#group-panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 1rem 1.25rem; margin-bottom: 1rem;
+  display: none; box-shadow: 0 2px 8px var(--shadow);
+}
+#group-panel h3 { font-size: 13px; font-weight: 700; margin-bottom: 10px; color: var(--text); }
+.group-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.group-chip {
+  display: flex; align-items: center; gap: 5px; padding: 4px 10px;
+  border-radius: 20px; font-size: 12px; border: 1px solid var(--border);
+  background: var(--surface2); transition: box-shadow 0.12s;
+}
+.group-chip:hover { box-shadow: 0 2px 6px var(--shadow); }
+.group-chip input {
+  border: none; background: transparent; font-size: 12px; font-family: inherit;
+  outline: none; width: 82px; color: var(--text);
+}
+.group-chip .chip-del { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 12px; padding: 0 2px; }
+.group-chip .chip-del:hover { color: #a4262c; }
+.group-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.1); }
+/* ── Extra columns ── */
+td.extra-col { background: var(--surface2) !important; }
+td.extra-col-sum { background: var(--surface2) !important; font-weight: 700; color: var(--hours-color, #1a5a2a); }
+input.hours-inp {
+  border: none; background: transparent; font-size: 11px; font-family: inherit;
+  width: 52px; outline: none; padding: 2px 4px; border-radius: 3px; text-align: center;
+  color: var(--text); font-weight: 600;
+}
+input.hours-inp:focus { background: rgba(255,255,255,0.9); border: 1px solid var(--accent); }
+input.hours-inp::-webkit-inner-spin-button { opacity: 1; }
+/* Partial day correction */
+td.partial-day { background: rgba(230,160,23,0.12) !important; }
+.partial-overlay {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  background: #fff; border: 1px solid var(--accent); border-radius: 6px;
+  padding: 8px 12px; z-index: 100; box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  display: flex; flex-direction: column; gap: 6px; min-width: 160px;
+}
+.partial-overlay label { font-size: 11px; color: var(--text2); font-weight: 600; }
+.partial-overlay input { border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; font-size: 13px; font-family: inherit; width: 100%; outline: none; text-align: center; }
+.partial-overlay input:focus { border-color: var(--accent); }
+.partial-overlay .p-btns { display: flex; gap: 6px; }
+.partial-overlay .p-btns button { flex: 1; padding: 4px; border-radius: 4px; border: 1px solid var(--border); cursor: pointer; font-size: 11px; font-family: inherit; }
+.partial-overlay .p-btns .p-ok { background: var(--accent); color: #fff; border-color: var(--accent); }
+.partial-overlay .p-btns .p-cancel { background: var(--surface2); color: var(--text); }
+select.ss.partial { color: #e65100 !important; font-weight: 700 !important; }
+
+
 </style>
 </head>
 <body>
 
-<div id="loading" class="hidden"><div class="spinner"></div> <span id="loading-text">Ładowanie dashboardu...</span></div>
+<div id="loading" class="hidden"><div class="spinner"></div> <span id="loading-text">Ładowanie...</span></div>
 
 <div id="auth-screen">
   <div class="auth-card">
     
-    <img src="logo.png" width="90" alt="Logo" style="margin-bottom:4px" />
+    <img src="logo.png" width="160" alt="Logo" style="margin-bottom:8px;opacity:0.85;border-radius:16px;background:#fff;padding:12px;" />
     <h1>SECP</h1>
-    <p>Zaloguj się kontem Microsoft 365</p>
+    <p>Zaloguj się kontem Microsoft 365, aby uzyskać dostęp do danych zespołu.</p>
     <button class="ms-btn" id="login-btn">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6.5" height="6.5" fill="#f25022"/><rect x="8.5" y="1" width="6.5" height="6.5" fill="#7fba00"/><rect x="1" y="8.5" width="6.5" height="6.5" fill="#00a4ef"/><rect x="8.5" y="8.5" width="6.5" height="6.5" fill="#ffb900"/></svg>
       Zaloguj się przez Microsoft
     </button>
+    <p id="auth-error" style="color:#a4262c;font-size:12px;display:none;"></p>
   </div>
 </div>
 
 <div id="app">
   <div class="topbar">
-    <h1>SECP</h1>
+    <h1>SECP <span class="save-dot" id="save-dot"></span></h1>
     <span class="user-info" id="user-info"></span>
-    <a class="back-btn" href="index.html">&#8592; Lista obecności</a>
-    <button class="tb" id="refresh-btn">&#8635; Odśwież</button>
+    <div class="month-nav">
+      <button id="prev-month">&#8592;</button>
+      <span class="month-label" id="month-label"></span>
+      <button id="next-month">&#8594;</button>
+    </div>
+    <button class="tb" id="groups-btn">&#9632; Grupy</button>
+    <button class="tb" id="add-employee">+ Pracownik</button>
+    <button class="tb" id="import-btn">&#8679; Import</button>
+    <input type="file" id="import-file" accept=".xlsx,.csv" style="display:none" />
+    <a href="dashboard.html" class="tb" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px">📊 Dashboard</a>
+    <button class="tb primary" id="export-btn">&#8595; XLSX</button>
     <div class="theme-switcher">
       <span class="theme-switcher-label">Motyw:</span>
       <div class="theme-btn active" data-theme="default" title="Domyślny"></div>
@@ -329,502 +515,787 @@ body.theme-candy .stat-badge.hours { background: #fdf4ff; color: #d946ef; }
     <button class="tb" id="logout-btn">Wyloguj</button>
   </div>
 
-  <div id="dashboard-content">
-    <!-- KPIs -->
-    <div class="section-title">Podsumowanie bieżącego miesiąca</div>
-    <div class="kpi-row" id="kpi-row"></div>
+  <!-- Group manager -->
+  <div id="group-panel">
+    <h3>Zarządzaj grupami</h3>
+    <div class="group-list" id="group-list"></div>
+    <button class="tb success" id="add-group-btn">+ Dodaj grupę</button>
+  </div>
 
-    <!-- 3 month columns -->
-    <div class="section-title">Obecność — 3 miesiące</div>
-    <div class="months-grid" id="months-grid"></div>
-
-    <!-- Charts -->
-    <div class="section-title">Wykresy</div>
-    <div class="charts-row">
-      <div class="chart-card">
-        <h3>📊 Absencje wg typu — bieżący miesiąc</h3>
-        <div class="chart-wrap"><canvas id="chart-absence"></canvas></div>
-      </div>
-      <div class="chart-card">
-        <h3>👥 Obecność wg grupy — bieżący miesiąc</h3>
-        <div class="chart-wrap"><canvas id="chart-groups"></canvas></div>
-      </div>
-    </div>
-    <div class="charts-row">
-      <div class="chart-card" style="grid-column:1/-1">
-        <h3>📈 Trend godzin przepracowanych — 3 miesiące</h3>
-        <div class="chart-wrap" style="height:200px"><canvas id="chart-trend"></canvas></div>
-      </div>
-    </div>
-
-    <!-- Absence detail -->
-    <div class="section-title">Szczegóły absencji i urlopów</div>
-    <div class="absence-card">
-      <div class="absence-card-header">📋 Rejestr absencji — bieżący miesiąc</div>
-      <table class="absence-table">
-        <thead><tr><th>Pracownik</th><th>Rola</th><th>Grupa</th><th>Typ absencji</th><th>Dni</th><th>Okres</th></tr></thead>
-        <tbody id="absence-tbody"></tbody>
-      </table>
-    </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr id="header-row"></tr></thead>
+      <tbody id="table-body"></tbody>
+    </table>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-// ── CONFIG (same as main app) ──────────────────────────────────
-const CONFIG = {
-  clientId: "TWOJ_CLIENT_ID",
-  tenantId: "TWOJ_TENANT_ID",
-  sharePointSite: "https://TWOJAFIRMA.sharepoint.com",
-  listName: "ListaObecnosci",
-  redirectUri: "https://ksm-group.github.io/lista-obecnosci/dashboard.htmldashboard.html",
-  extraLogin: {
-    email: "kucia.michal@gmail.com",
-    password: "USTAW_HASLO_TUTAJ"
-  }
-};
-
-// ── Special roles ──────────────────────────────────────────────
-const SPECIAL_ROLES = {
-  'Dorota Lesińska':    { role: 'Kierownik',    shift: '1 zmiana', cls: 'role-kierownik' },
-  'Wiktor Wojtasik':    { role: 'Koordynator',  shift: '1 zmiana', cls: 'role-koordynator' },
-  'Mateusz Durzyński':  { role: 'Kierownik',    shift: '2 zmiana', cls: 'role-kierownik' },
-  'Natalia Czysta':     { role: 'Koordynator',  shift: '2 zmiana', cls: 'role-koordynator' },
-  'Bartosz Kozłowski':  { role: 'Kierownik 3PL/KJ', shift: '', cls: 'role-kierownik' },
-  'Bartosz Bandyszewski': { role: 'Koordynator Przyjęcie', shift: '', cls: 'role-koordynator' },
-  'Marceli Zawierucha': { role: 'Koordynator KJ', shift: '', cls: 'role-koordynator' },
-};
-
 const PL_MONTHS = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
 const PL_DAYS   = ['Nd','Pn','Wt','Śr','Cz','Pt','Sb'];
-const GRAPH = 'https://graph.microsoft.com/v1.0';
-const SCOPES = ['User.Read','Sites.ReadWrite.All'];
-const GROUP_COLORS = ['#3a6fc4','#2e7d52','#8b4ec8','#e65100','#00695c','#a4262c','#0288d1','#827717'];
-const ABSENCE_COLORS = { 'UŻ':'#e53935','URLOP':'#1e88e5','NN':'#f9a825','Zwolnienie/L4':'#8e24aa','Opieka':'#00897b' };
+const STATUSES  = ['OBECNY','UŻ','URLOP','NN','Zwolnienie/L4','Opieka'];
+const S_CLASS   = { 'OBECNY':'obecny','UŻ':'uz','URLOP':'urlop','NN':'nn','Zwolnienie/L4':'l4','Opieka':'opieka' };
+const GROUP_COLORS = ['#c8e6c9','#bbdefb','#ffe0b2','#e1bee7','#ffccbc','#b2dfdb','#f8bbd0','#f0f4c3'];
+const GROUP_COLORS_DARK = ['#2e7d32','#1565c0','#e65100','#6a1b9a','#bf360c','#00695c','#880e4f','#827717'];
 
-let msalInstance=null, account=null, siteId=null, listId=null;
-let employees=[], groups=[], monthStatuses={}, extraData={};
+const GRAPH = 'https://graph.microsoft.com/v1.0';
+const SCOPES = ['User.Read', 'Sites.ReadWrite.All'];
+
+let msalInstance = null, account = null, siteId = null, listId = null;
+let viewYear, viewMonth;
+// employees: array of { name, group }
+let employees = [];
+// groups: array of { id, name }
+let groups = [];
+let monthStatuses = {};
+let extraData = {}; // { 'empName||y_m': { ot50, ot100 } }
+let spItemIds = {};
+let saveTimer = null;
 
 // ── MSAL ──────────────────────────────────────────────────────
 function initMsal() {
   msalInstance = new msal.PublicClientApplication({
-    auth: { clientId:CONFIG.clientId, authority:'https://login.microsoftonline.com/'+CONFIG.tenantId, redirectUri:CONFIG.redirectUri },
-    cache: { cacheLocation:'sessionStorage' }
+    auth: { clientId: CONFIG.clientId, authority: 'https://login.microsoftonline.com/' + CONFIG.tenantId, redirectUri: CONFIG.redirectUri },
+    cache: { cacheLocation: 'sessionStorage' }
   });
   msalInstance.initialize().then(() => {
     msalInstance.handleRedirectPromise().then(resp => {
       if (resp) account = resp.account;
-      else { let a=msalInstance.getAllAccounts(); if(a.length) account=a[0]; }
+      else { let a = msalInstance.getAllAccounts(); if (a.length) account = a[0]; }
       if (account) startApp();
-    }).catch(e => console.error(e));
+    }).catch(e => showAuthError(e));
   });
 }
-document.getElementById('login-btn').addEventListener('click', () => msalInstance && msalInstance.loginRedirect({ scopes:SCOPES }));
-document.getElementById('logout-btn').addEventListener('click', () => msalInstance.logoutPopup().then(()=>location.reload()));
-document.getElementById('refresh-btn').addEventListener('click', () => loadData());
+document.getElementById('login-btn').addEventListener('click', () => msalInstance && msalInstance.loginRedirect({ scopes: SCOPES }));
+document.getElementById('logout-btn').addEventListener('click', () => msalInstance.logoutPopup().then(() => location.reload()));
 
 async function getToken() {
-  try { return (await msalInstance.acquireTokenSilent({scopes:SCOPES,account})).accessToken; }
-  catch { return (await msalInstance.acquireTokenPopup({scopes:SCOPES})).accessToken; }
+  try { return (await msalInstance.acquireTokenSilent({ scopes: SCOPES, account })).accessToken; }
+  catch { return (await msalInstance.acquireTokenPopup({ scopes: SCOPES })).accessToken; }
 }
 async function graphGet(url) {
-  let r = await fetch(GRAPH+url, {headers:{Authorization:'Bearer '+await getToken()}});
-  if(!r.ok) throw new Error(await r.text());
-  return r.json();
+  let r = await fetch(GRAPH + url, { headers: { Authorization: 'Bearer ' + await getToken() } });
+  if (!r.ok) throw new Error(await r.text()); return r.json();
+}
+async function graphPost(url, body) {
+  let r = await fetch(GRAPH + url, { method: 'POST', headers: { Authorization: 'Bearer ' + await getToken(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(await r.text()); return r.json();
+}
+async function graphPatch(url, body) {
+  let r = await fetch(GRAPH + url, { method: 'PATCH', headers: { Authorization: 'Bearer ' + await getToken(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(await r.text()); return r.json();
+}
+async function graphDelete(url) {
+  await fetch(GRAPH + url, { method: 'DELETE', headers: { Authorization: 'Bearer ' + await getToken() } });
 }
 
 // ── Start ──────────────────────────────────────────────────────
 async function startApp() {
   showLoading('Łączenie z SharePoint...');
-  document.getElementById('auth-screen').style.display='none';
-  document.getElementById('app').style.display='block';
-  document.getElementById('user-info').textContent = account.name||account.username;
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('user-info').textContent = account.name || account.username;
   try {
-    let siteUrl = CONFIG.sharePointSite.replace('https://','');
-    let host=siteUrl.split('/')[0], path=siteUrl.split('/').slice(1).join('/');
-    let sr = path ? await graphGet('/sites/'+host+':/'+path) : await graphGet('/sites/'+host+':/');
-    siteId = sr.id;
-    let lr = await graphGet('/sites/'+siteId+'/lists?$top=200');
-    let found = lr.value.find(l=>l.displayName===CONFIG.listName||l.name===CONFIG.listName);
-    if(!found) throw new Error('Nie znaleziono listy');
+    let siteUrl = CONFIG.sharePointSite.replace('https://', '');
+    let host = siteUrl.split('/')[0], path = siteUrl.split('/').slice(1).join('/');
+    let siteResp = path ? await graphGet('/sites/' + host + ':/' + path) : await graphGet('/sites/' + host + ':/');
+    siteId = siteResp.id;
+    let listsResp = await graphGet('/sites/' + siteId + '/lists?$top=200');
+    let found = listsResp.value.find(l => l.displayName === CONFIG.listName || l.name === CONFIG.listName);
+    if (!found) throw new Error('Nie znaleziono listy "' + CONFIG.listName + '"');
     listId = found.id;
-    await loadData();
+    await loadFromSharePoint();
     hideLoading();
-  } catch(e) { hideLoading(); showToast('Błąd: '+e.message); }
+  } catch(e) { hideLoading(); showToast('Błąd: ' + e.message); loadDemoData(); }
 }
 
-async function loadData() {
+// ── SharePoint data ────────────────────────────────────────────
+async function loadFromSharePoint() {
   showLoading('Ładowanie danych...');
-  try {
-    let resp = await graphGet('/sites/'+siteId+'/lists/'+listId+'/items?$expand=fields&$top=999');
-    employees=[]; groups=[]; monthStatuses={}; extraData={};
+  let resp = await graphGet('/sites/' + siteId + '/lists/' + listId + '/items?$expand=fields&$top=999');
+  employees = []; groups = []; monthStatuses = {}; spItemIds = {};
 
-    let empItem = resp.value.find(i=>i.fields.Title==='__employees__');
-    if(empItem) {
-      try {
-        let raw = JSON.parse(empItem.fields.Statusy||'{}');
-        if(Array.isArray(raw)) { employees=raw.map(n=>typeof n==='string'?{name:n,group:''}:n); groups=[]; }
-        else { employees=(raw.employees||[]).map(e=>typeof e==='string'?{name:e,group:''}:e); groups=raw.groups||[]; }
-      } catch {}
-    }
+  let empItem = resp.value.find(i => i.fields.Title === '__employees__');
+  if (empItem) {
+    try {
+      let raw = empItem.fields.Statusy || '{}';
+      let parsed = JSON.parse(raw);
+      // Backward compat: old format was array of strings
+      if (Array.isArray(parsed)) {
+        employees = parsed.map(n => typeof n === 'string' ? { name: n, group: '' } : n);
+        groups = [];
+      } else {
+        employees = (parsed.employees || []).map(e => typeof e === 'string' ? { name: e, group: '' } : e);
+        groups = parsed.groups || [];
+      }
+    } catch { employees = []; groups = []; }
+    spItemIds['__employees__'] = empItem.id;
+  }
+  if (!employees.length) employees = [];
+  if (!groups.length) groups = [];
 
-    resp.value.filter(i=>i.fields.Title!=='__employees__').forEach(item=>{
-      let f=item.fields, mk=f.Rok+'_'+f.Miesiac;
-      if(!monthStatuses[mk]) monthStatuses[mk]={};
-      try {
-        let parsed=JSON.parse(f.Statusy||'{}');
-        let empName=f.Title;
-        Object.keys(monthStatuses[mk]).filter(k=>k.startsWith(empName+'||')).forEach(k=>delete monthStatuses[mk][k]);
-        if(parsed.statuses) {
-          Object.assign(monthStatuses[mk],parsed.statuses);
-          if(parsed.ot) extraData[empName+'||'+mk]=parsed.ot;
-        } else {
-          Object.keys(parsed).filter(k=>k.startsWith(empName+'||')).forEach(k=>{ monthStatuses[mk][k]=parsed[k]; });
+  resp.value.filter(i => i.fields.Title !== '__employees__').forEach(item => {
+    let f = item.fields, mk = f.Rok + '_' + f.Miesiac;
+    if (!monthStatuses[mk]) monthStatuses[mk] = {};
+    try {
+      let parsed = JSON.parse(f.Statusy || '{}');
+      let empName = f.Title;
+      // Clear any old keys for this employee before loading
+      Object.keys(monthStatuses[mk]).filter(k => k.startsWith(empName + '||')).forEach(k => delete monthStatuses[mk][k]);
+      if (parsed.statuses) {
+        Object.assign(monthStatuses[mk], parsed.statuses);
+        if (parsed.ot) {
+          extraData[empName + '||' + mk] = parsed.ot;
         }
-      } catch {}
-    });
+      } else {
+        // Old format — load but only keys belonging to this employee
+        Object.keys(parsed).filter(k => k.startsWith(empName + '||')).forEach(k => {
+          monthStatuses[mk][k] = parsed[k];
+        });
+      }
+    } catch {}
+    spItemIds[mk + '_' + f.Title] = item.id;
+  });
 
-    renderDashboard();
-    hideLoading();
-  } catch(e) { hideLoading(); showToast('Błąd: '+e.message); }
+  let now = new Date(); viewYear = now.getFullYear(); viewMonth = now.getMonth();
+  renderTable(); renderGroupPanel();
+  hideLoading();
 }
+
+async function saveEmployees() {
+  let body = { fields: { Title: '__employees__', Statusy: JSON.stringify({ employees, groups }), Miesiac: '0', Rok: 0 } };
+  if (spItemIds['__employees__']) await graphPatch('/sites/' + siteId + '/lists/' + listId + '/items/' + spItemIds['__employees__'], body);
+  else { let r = await graphPost('/sites/' + siteId + '/lists/' + listId + '/items', body); spItemIds['__employees__'] = r.id; }
+}
+
+async function saveMonthForEmployee(emp, y, m) {
+  let mk = y + '_' + m, s = monthStatuses[mk] || {};
+  // Build FULL status map for this employee (all days of month)
+  let days = getDays(y, m);
+  let empS = {};
+  for (let d = 1; d <= days; d++) {
+    let k = sKey(emp, d);
+    empS[k] = s[k] || 'OBECNY';
+  }
+  let ex = getExtra(emp, y, m);
+  let spKey = mk + '_' + emp;
+  let body = { fields: { Title: emp, Miesiac: String(m), Rok: y, Statusy: JSON.stringify({ statuses: empS, ot: ex }) } };
+  if (spItemIds[spKey]) await graphPatch('/sites/' + siteId + '/lists/' + listId + '/items/' + spItemIds[spKey], body);
+  else { let r = await graphPost('/sites/' + siteId + '/lists/' + listId + '/items', body); spItemIds[spKey] = r.id; }
+}
+
+async function deleteEmployeeData(empName) {
+  let toDelete = Object.keys(spItemIds).filter(k => k.endsWith('_' + empName) && k !== '__employees__');
+  for (let k of toDelete) { await graphDelete('/sites/' + siteId + '/lists/' + listId + '/items/' + spItemIds[k]); delete spItemIds[k]; }
+}
+
+function scheduleSave(emp) {
+  setSaveDot('saving');
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try { if (siteId) await saveMonthForEmployee(emp, viewYear, viewMonth); else saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+    catch(e) { showToast('Błąd zapisu: ' + e.message); setSaveDot(''); }
+  }, 800);
+}
+function setSaveDot(s) { document.getElementById('save-dot').className = 'save-dot' + (s ? ' ' + s : ''); }
 
 // ── Helpers ────────────────────────────────────────────────────
+
+function extraKey(emp, y, m) { return emp + '||' + y + '_' + m; }
+function getExtra(emp, y, m) {
+  let k = extraKey(emp, y, m);
+  if (!extraData[k]) extraData[k] = { ot50: 0, ot100: 0, partial: {} };
+  if (!extraData[k].partial) extraData[k].partial = {};
+  return extraData[k];
+}
+function calcHoursToday(emp, y, m) {
+  let statuses = getStatuses(y, m);
+  let today = new Date();
+  let isCurrentMonth = (today.getFullYear() === y && today.getMonth() === m);
+  let days = getDays(y, m);
+  let lastDay = isCurrentMonth ? today.getDate() : days;
+  let hours = 0;
+  let holidays = getPolishHolidays(y);
+  let ex = getExtra(emp.name, y, m);
+  for (let d = 1; d <= lastDay; d++) {
+    let dow = new Date(y, m, d).getDay();
+    if (dow === 0 || dow === 6) continue;
+    if (holidays.has(m + '_' + d)) continue;
+    let val = statuses[sKey(emp.name, d)] || 'OBECNY';
+    if (val === 'OBECNY') {
+      // Check if partial hours set for this day
+      let ph = ex.partial && ex.partial[d] !== undefined ? parseFloat(ex.partial[d]) : 8;
+      hours += ph;
+    }
+  }
+  return hours;
+}
+
+function monthKey(y,m) { return y+'_'+m; }
+function getStatuses(y,m) { let k=monthKey(y,m); if(!monthStatuses[k]) monthStatuses[k]={}; return monthStatuses[k]; }
+function sKey(emp,day) { return emp+'||'+day; }
 function getDays(y,m) { return new Date(y,m+1,0).getDate(); }
 function isWE(y,m,d) { let w=new Date(y,m,d).getDay(); return w===0||w===6; }
-function sKey(emp,day) { return emp+'||'+day; }
-function getStatuses(y,m) { return monthStatuses[y+'_'+m]||{}; }
-function getExtra(emp,y,m) { let k=emp+'||'+y+'_'+m; if(!extraData[k]) extraData[k]={ot50:0,ot100:0,partial:{}}; if(!extraData[k].partial) extraData[k].partial={}; return extraData[k]; }
 
+// Polish public holidays (fixed + Easter-based)
 function getPolishHolidays(y) {
+  // Easter calculation (Anonymous Gregorian)
   function easter(yr) {
-    let a=yr%19,b=Math.floor(yr/100),c=yr%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m2=Math.floor((a+11*h+22*l)/451),month=Math.floor((h+l-7*m2+114)/31)-1,day=((h+l-7*m2+114)%31)+1;
-    return new Date(yr,month,day);
+    let a=yr%19, b=Math.floor(yr/100), c=yr%100;
+    let d=Math.floor(b/4), e=b%4, f=Math.floor((b+8)/25);
+    let g=Math.floor((b-f+1)/3), h=(19*a+b-d-g+15)%30;
+    let i=Math.floor(c/4), k=c%4, l=(32+2*e+2*i-h-k)%7;
+    let m2=Math.floor((a+11*h+22*l)/451);
+    let month=Math.floor((h+l-7*m2+114)/31)-1;
+    let day=((h+l-7*m2+114)%31)+1;
+    return new Date(yr, month, day);
   }
-  let e=easter(y), add=(d,n)=>{let x=new Date(d);x.setDate(x.getDate()+n);return x;}, fmt=d=>d.getMonth()+'_'+d.getDate();
-  return new Set(['0_1','0_6','4_1','4_3','7_15','10_1','10_11','11_25','11_26',fmt(e),fmt(add(e,1)),fmt(add(e,49)),fmt(add(e,60))]);
+  let e = easter(y);
+  let add = (date, days) => { let d=new Date(date); d.setDate(d.getDate()+days); return d; };
+  let fmt = d => d.getMonth() + '_' + d.getDate();
+  let holidays = new Set([
+    '0_1',   // Nowy Rok
+    '0_6',   // Trzech Króli
+    '4_1',   // Święto Pracy
+    '4_3',   // Święto Konstytucji 3 Maja
+    '7_15',  // Wniebowzięcie NMP
+    '10_1',  // Wszystkich Świętych
+    '10_11', // Święto Niepodległości
+    '11_25', // Boże Narodzenie
+    '11_26', // Drugi dzień Bożego Narodzenia
+    fmt(e),            // Wielkanoc
+    fmt(add(e, 1)),    // Poniedziałek Wielkanocny
+    fmt(add(e, 49)),   // Zesłanie Ducha Świętego
+    fmt(add(e, 60)),   // Boże Ciało
+  ]);
+  return holidays;
 }
 
-function calcWorkDays(y,m) {
-  let days=getDays(y,m), hols=getPolishHolidays(y), count=0;
-  for(let d=1;d<=days;d++) { let dow=new Date(y,m,d).getDay(); if(dow!==0&&dow!==6&&!hols.has(m+'_'+d)) count++; }
-  return count;
+function getDayClass(y,m,d) {
+  let holidays = getPolishHolidays(y);
+  let key = m + '_' + d;
+  if (holidays.has(key)) return 'col-hol';
+  let dow = new Date(y,m,d).getDay();
+  if (dow===0||dow===6) return 'col-we';
+  return '';
+}
+function getGroupIdx(groupId) { return groups.findIndex(g => g.id === groupId); }
+function loadDemoData() {
+  let now = new Date(); viewYear=now.getFullYear(); viewMonth=now.getMonth();
+  groups = [{id:'g1',name:'Magazyn'},{id:'g2',name:'Biuro'}];
+  employees = [{name:'Jan Kowalski',group:'g1'},{name:'Anna Nowak',group:'g1'},{name:'Piotr Wiśniewski',group:'g2'}];
+  monthStatuses = {}; renderTable(); renderGroupPanel();
 }
 
-function calcWorkDaysToDate(y,m) {
-  let today=new Date(), isNow=(today.getFullYear()===y&&today.getMonth()===m);
-  let last=isNow?today.getDate():getDays(y,m);
-  let hols=getPolishHolidays(y), count=0;
-  for(let d=1;d<=last;d++) { let dow=new Date(y,m,d).getDay(); if(dow!==0&&dow!==6&&!hols.has(m+'_'+d)) count++; }
-  return count;
-}
-
-function empHoursMonth(emp,y,m) {
-  let s=getStatuses(y,m), ex=getExtra(emp.name,y,m), hols=getPolishHolidays(y), total=0;
-  let today=new Date(), isNow=(today.getFullYear()===y&&today.getMonth()===m);
-  let last=isNow?today.getDate():getDays(y,m);
-  for(let d=1;d<=last;d++) {
-    let dow=new Date(y,m,d).getDay();
-    if(dow===0||dow===6||hols.has(m+'_'+d)) continue;
-    let v=s[sKey(emp.name,d)]||'OBECNY';
-    if(v==='OBECNY') { let ph=ex.partial&&ex.partial[d]!==undefined?parseFloat(ex.partial[d]):8; total+=ph; }
-  }
-  return total;
-}
-
-function empAbsenceDays(emp,y,m,type) {
-  let s=getStatuses(y,m), hols=getPolishHolidays(y), days=getDays(y,m), count=0;
-  for(let d=1;d<=days;d++) {
-    let dow=new Date(y,m,d).getDay();
-    if(dow===0||dow===6||hols.has(m+'_'+d)) continue;
-    let v=s[sKey(emp.name,d)]||'OBECNY';
-    if(v===type) count++;
-  }
-  return count;
-}
-
-function empVacationPeriods(emp,y,m) {
-  let s=getStatuses(y,m), days=getDays(y,m), periods=[], start=null;
-  for(let d=1;d<=days+1;d++) {
-    let v = d<=days ? (s[sKey(emp.name,d)]||'OBECNY') : null;
-    if(v==='URLOP') { if(!start) start=d; }
-    else { if(start) { periods.push({from:start,to:d-1,days:d-start}); start=null; } }
-  }
-  return periods;
-}
-
-function empTodayStatus(emp,y,m) {
-  let today=new Date(), isNow=(today.getFullYear()===y&&today.getMonth()===m);
-  if(!isNow) return null;
-  let s=getStatuses(y,m);
-  return s[sKey(emp.name,today.getDate())]||'OBECNY';
-}
-
-function statusClass(v) {
-  let m={'OBECNY':'obecny','UŻ':'uz','URLOP':'urlop','NN':'nn','Zwolnienie/L4':'l4','Opieka':'opieka'};
-  return m[v]||'obecny';
-}
-
-// ── Render Dashboard ───────────────────────────────────────────
-let chartAbsence=null, chartGroups=null, chartTrend=null;
-
-function renderDashboard() {
-  let now=new Date(), cy=now.getFullYear(), cm=now.getMonth();
-  let months=[[cy,cm],[cy,cm+1>11?0:cm+1,cm+1>11?cy+1:cy],[cy,cm+2>11?cm+2-12:cm+2,cm+2>11?cy+1:cy]];
-  // fix year rollover
-  months=[];
-  for(let i=0;i<3;i++){
-    let mm=cm+i, yy=cy; if(mm>11){mm-=12;yy++;} months.push([yy,mm]);
-  }
-
-  renderKPIs(cy,cm);
-  renderMonthsGrid(months);
-  renderCharts(cy,cm,months);
-  renderAbsenceTable(cy,cm);
-}
-
-function renderKPIs(y,m) {
-  let wd=calcWorkDays(y,m), wdNow=calcWorkDaysToDate(y,m);
-  let totalEmp=employees.length;
-  let todayPresent=employees.filter(e=>{let s=empTodayStatus(e,y,m);return s==='OBECNY';}).length;
-  let todayAbsent=employees.filter(e=>{let s=empTodayStatus(e,y,m);return s&&s!=='OBECNY';}).length;
-  let totalHours=employees.reduce((sum,e)=>sum+empHoursMonth(e,y,m),0);
-  let onVacation=employees.filter(e=>empTodayStatus(e,y,m)==='URLOP').length;
-
-  document.getElementById('kpi-row').innerHTML=`
-    <div class="kpi-card"><div class="kpi-label">Pracownicy dziś obecni</div><div class="kpi-value" style="color:var(--green)">${todayPresent}</div><div class="kpi-sub">z ${totalEmp} zatrudnionych</div></div>
-    <div class="kpi-card"><div class="kpi-label">Absencje dziś</div><div class="kpi-value" style="color:var(--red)">${todayAbsent}</div><div class="kpi-sub">urlop: ${onVacation}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Godziny razem (mies.)</div><div class="kpi-value">${totalHours}</div><div class="kpi-sub">dni rob: ${wdNow}/${wd}</div></div>
-    <div class="kpi-card"><div class="kpi-label">Wszyscy pracownicy</div><div class="kpi-value">${totalEmp}</div><div class="kpi-sub">${groups.length} grup</div></div>
-  `;
-}
-
-function renderMonthsGrid(months) {
-  let grid=document.getElementById('months-grid');
-  grid.innerHTML='';
-  months.forEach(([y,m],mi)=>{
-    let card=document.createElement('div');
-    card.className='month-card';
-    let wd=calcWorkDays(y,m);
-    let isCurrent=mi===0;
-    card.innerHTML=`<div class="month-card-header" ${isCurrent?'style="background:linear-gradient(90deg,#1a3a6a,#2d5ba8)"':''}>
-      <h2>${isCurrent?'🔵 ':''}${PL_MONTHS[m]} ${y}</h2>
-      <span class="wday-count">${wd} dni rob.</span>
-    </div><div class="month-card-body" id="mcb-${y}-${m}"></div>`;
-    grid.appendChild(card);
-    renderMonthGroups(y,m,card.querySelector('.month-card-body'));
+// ── Group panel ────────────────────────────────────────────────
+function renderGroupPanel() {
+  let list = document.getElementById('group-list');
+  list.innerHTML = '';
+  groups.forEach((g, gi) => {
+    let chip = document.createElement('div');
+    chip.className = 'group-chip';
+    chip.style.borderColor = GROUP_COLORS_DARK[gi % GROUP_COLORS_DARK.length];
+    chip.style.background = GROUP_COLORS[gi % GROUP_COLORS.length];
+    chip.innerHTML = '<div class="group-dot" style="background:' + GROUP_COLORS_DARK[gi % GROUP_COLORS_DARK.length] + '"></div>' +
+      '<input value="' + g.name.replace(/"/g,'&quot;') + '" data-gi="' + gi + '" />' +
+      '<button class="chip-del" data-gi="' + gi + '">✕</button>';
+    list.appendChild(chip);
   });
-}
-
-function renderMonthGroups(y,m,container) {
-  // Build grouped employees
-  let grouped={}, noGroup=[];
-  employees.forEach(emp=>{
-    if(emp.group&&groups.find(g=>g.id===emp.group)) { if(!grouped[emp.group]) grouped[emp.group]=[]; grouped[emp.group].push(emp); }
-    else noGroup.push(emp);
-  });
-
-  let renderGroup=(gid,emps,gi)=>{
-    let g=groups.find(x=>x.id===gid)||{name:'Bez grupy'};
-    let color=GROUP_COLORS[gi%GROUP_COLORS.length];
-    let presentCount=emps.filter(e=>{let s=getStatuses(y,m)[sKey(e.name,new Date().getDate())]||'OBECNY'; return s==='OBECNY';}).length;
-    let absentCount=emps.length-presentCount;
-    let totalHours=emps.reduce((s,e)=>s+empHoursMonth(e,y,m),0);
-
-    let section=document.createElement('div');
-    section.className='group-section';
-
-    let header=document.createElement('div');
-    header.className='group-section-header';
-    header.innerHTML=`<div class="group-dot" style="background:${color}"></div>
-      <span class="group-name">${g.name}</span>
-      <div class="group-stats">
-        <span class="stat-badge present">✓ ${presentCount}</span>
-        ${absentCount?`<span class="stat-badge absent">✗ ${absentCount}</span>`:''}
-        <span class="stat-badge hours">${totalHours}h</span>
-      </div>`;
-
-    let list=document.createElement('div');
-    list.className='emp-list';
-
-    emps.forEach(emp=>{
-      let statuses=getStatuses(y,m);
-      let days=getDays(y,m);
-      // Count absences
-      let absTypes={};
-      let hols=getPolishHolidays(y);
-      for(let d=1;d<=days;d++){
-        let dow=new Date(y,m,d).getDay();
-        if(dow===0||dow===6||hols.has(m+'_'+d)) continue;
-        let v=statuses[sKey(emp.name,d)]||'OBECNY';
-        if(v!=='OBECNY') { absTypes[v]=(absTypes[v]||0)+1; }
-      }
-      let absKeys=Object.keys(absTypes);
-      let todayV=getStatuses(y,m)[sKey(emp.name,new Date().getDate())]||'OBECNY';
-      let hours=empHoursMonth(emp,y,m);
-      let role=SPECIAL_ROLES[emp.name];
-      let vacPeriods=empVacationPeriods(emp,y,m);
-      let vacInfo='';
-      if(vacPeriods.length>0){
-        let totalVacDays=vacPeriods.reduce((s,p)=>s+p.days,0);
-        let periods=vacPeriods.map(p=>`${p.from}-${p.to}.${m+1}`).join(', ');
-        vacInfo=`<span class="emp-vacation-info">🏖 ${totalVacDays}d (${periods})</span>`;
-      }
-
-      let statusLabel=absKeys.length===0?'OBECNY':absKeys.length===1?absKeys[0]:'MIESZANY';
-      let statusCls=absKeys.length===0?'obecny':absKeys.length===1?statusClass(absKeys[0]):'mixed';
-
-      let row=document.createElement('div');
-      row.className='emp-row';
-      row.innerHTML=`
-        <span class="emp-name">${emp.name}${role?` <span class="${role.cls}" style="font-size:10px">(${role.role}${role.shift?' · '+role.shift:''})</span>`:''}</span>
-        ${vacInfo}
-        <span class="emp-status ${statusCls}">${statusLabel}</span>
-        <span class="emp-hours">${hours}h</span>
-      `;
-      list.appendChild(row);
-    });
-
-    // Toggle
-    header.addEventListener('click',()=>{ list.style.display=list.style.display==='none'?'block':'none'; });
-    section.appendChild(header);
-    section.appendChild(list);
-    container.appendChild(section);
-  };
-
-  groups.forEach((g,gi)=>{ if(grouped[g.id]&&grouped[g.id].length) renderGroup(g.id,grouped[g.id],gi); });
-  if(noGroup.length) renderGroup(null,noGroup,groups.length);
-}
-
-function renderCharts(cy,cm,months) {
-  // 1. Absence types pie
-  let absCount={};
-  let s=getStatuses(cy,cm), hols=getPolishHolidays(cy), days=getDays(cy,cm);
-  employees.forEach(emp=>{
-    for(let d=1;d<=days;d++){
-      let dow=new Date(cy,cm,d).getDay();
-      if(dow===0||dow===6||hols.has(cm+'_'+d)) continue;
-      let v=s[sKey(emp.name,d)]||'OBECNY';
-      if(v!=='OBECNY') absCount[v]=(absCount[v]||0)+1;
-    }
-  });
-  let absLabels=Object.keys(absCount), absData=absLabels.map(k=>absCount[k]);
-  let absColors=absLabels.map(k=>ABSENCE_COLORS[k]||'#999');
-
-  if(chartAbsence) chartAbsence.destroy();
-  chartAbsence=new Chart(document.getElementById('chart-absence'),{
-    type:'doughnut',
-    data:{ labels:absLabels.length?absLabels:['Brak absencji'], datasets:[{ data:absLabels.length?absData:[1], backgroundColor:absLabels.length?absColors:['#e8eef8'], borderWidth:2 }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{ font:{size:11}, padding:12 } } } }
-  });
-
-  // 2. Group presence bar
-  let grpLabels=[], grpPresent=[], grpAbsent=[];
-  let grouped={}, noGroup=[];
-  employees.forEach(emp=>{ if(emp.group&&groups.find(g=>g.id===emp.group)){if(!grouped[emp.group])grouped[emp.group]=[];grouped[emp.group].push(emp);}else noGroup.push(emp); });
-  groups.forEach(g=>{ if(!grouped[g.id]||!grouped[g.id].length) return; grpLabels.push(g.name); let p=0,a=0; grouped[g.id].forEach(e=>{ let v=s[sKey(e.name,new Date().getDate())]||'OBECNY'; if(v==='OBECNY')p++;else a++; }); grpPresent.push(p); grpAbsent.push(a); });
-  if(noGroup.length){ grpLabels.push('Bez grupy'); let p=0,a=0; noGroup.forEach(e=>{let v=s[sKey(e.name,new Date().getDate())]||'OBECNY';if(v==='OBECNY')p++;else a++;});grpPresent.push(p);grpAbsent.push(a); }
-
-  if(chartGroups) chartGroups.destroy();
-  chartGroups=new Chart(document.getElementById('chart-groups'),{
-    type:'bar',
-    data:{ labels:grpLabels, datasets:[
-      { label:'Obecni', data:grpPresent, backgroundColor:'rgba(26,122,46,0.7)', borderColor:'#1a7a2e', borderWidth:1, borderRadius:4 },
-      { label:'Nieobecni', data:grpAbsent, backgroundColor:'rgba(164,38,44,0.7)', borderColor:'#a4262c', borderWidth:1, borderRadius:4 }
-    ]},
-    options:{ responsive:true, maintainAspectRatio:false, scales:{ x:{stacked:false}, y:{beginAtZero:true,ticks:{stepSize:1}} }, plugins:{ legend:{ position:'top', labels:{font:{size:11}} } } }
-  });
-
-  // 3. Trend line
-  let trendLabels=months.map(([y,m])=>PL_MONTHS[m].substring(0,3)+' '+y);
-  let trendData=months.map(([y,m])=>employees.reduce((sum,e)=>sum+empHoursMonth(e,y,m),0));
-
-  if(chartTrend) chartTrend.destroy();
-  chartTrend=new Chart(document.getElementById('chart-trend'),{
-    type:'line',
-    data:{ labels:trendLabels, datasets:[{ label:'Godziny razem', data:trendData, borderColor:'#3a6fc4', backgroundColor:'rgba(58,111,196,0.1)', borderWidth:2, pointRadius:6, pointBackgroundColor:'#3a6fc4', tension:0.3, fill:true }] },
-    options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:false} }, plugins:{ legend:{ display:false } } }
-  });
-}
-
-function renderAbsenceTable(y,m) {
-  let tbody=document.getElementById('absence-tbody');
-  tbody.innerHTML='';
-  let hols=getPolishHolidays(y), days=getDays(y,m), s=getStatuses(y,m);
-  let rows=[];
-
-  employees.forEach(emp=>{
-    let absTypes={};
-    for(let d=1;d<=days;d++){
-      let dow=new Date(y,m,d).getDay();
-      if(dow===0||dow===6||hols.has(m+'_'+d)) continue;
-      let v=s[sKey(emp.name,d)]||'OBECNY';
-      if(v!=='OBECNY') absTypes[v]=(absTypes[v]||0)+1;
-    }
-    let g=groups.find(x=>x.id===emp.group);
-    let role=SPECIAL_ROLES[emp.name];
-    let vacPeriods=empVacationPeriods(emp,y,m);
-
-    Object.keys(absTypes).forEach(type=>{
-      let period='';
-      if(type==='URLOP'&&vacPeriods.length) period=vacPeriods.map(p=>`${p.from}-${p.to}.${m+1} (${p.days}d)`).join('; ');
-      rows.push({ name:emp.name, role:role?role.role+' '+(role.shift||''):'—', group:g?g.name:'—', type, days:absTypes[type], period });
+  list.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('change', async function() {
+      groups[+this.dataset.gi].name = this.value.trim() || groups[+this.dataset.gi].name;
+      if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+      renderTable();
     });
   });
+  list.querySelectorAll('.chip-del').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      let gi = +this.dataset.gi, gid = groups[gi].id;
+      if (!confirm('Usunąć grupę? Pracownicy zostaną bez grupy.')) return;
+      groups.splice(gi, 1);
+      employees.forEach(e => { if (e.group === gid) e.group = ''; });
+      if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+      renderGroupPanel(); renderTable();
+    });
+  });
+}
 
-  if(!rows.length) {
-    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px">Brak absencji w tym miesiącu 🎉</td></tr>';
-    return;
+document.getElementById('groups-btn').addEventListener('click', () => {
+  let p = document.getElementById('group-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+});
+
+document.getElementById('add-group-btn').addEventListener('click', async () => {
+  let newId = 'g' + Date.now();
+  groups.push({ id: newId, name: 'Nowa grupa' });
+  if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+  renderGroupPanel(); renderTable();
+});
+
+
+function updateSumCell(empName, tr) {
+  let emp = employees.find(e => e.name === empName);
+  if (!emp) return;
+  let sumTd = tr.querySelector('td[data-sumrow]');
+  if (sumTd) sumTd.textContent = calcHoursToday(emp, viewYear, viewMonth);
+}
+
+// ── Render table ───────────────────────────────────────────────
+function renderTable() {
+  let days = getDays(viewYear, viewMonth);
+  let statuses = getStatuses(viewYear, viewMonth);
+  document.getElementById('month-label').textContent = PL_MONTHS[viewMonth] + ' ' + viewYear;
+
+  let hRow = document.getElementById('header-row');
+  hRow.innerHTML = '<th style="width:36px">#</th><th>Pracownik</th><th style="min-width:72px;background:linear-gradient(180deg,#d5e8f5,#c5daea);white-space:normal">Nadgodziny<br><span style="font-weight:400">50%</span></th><th style="min-width:72px;background:linear-gradient(180deg,#d5e8f5,#c5daea);white-space:normal">Nadgodziny<br><span style="font-weight:400">100%</span></th><th style="min-width:72px;background:linear-gradient(180deg,#cde8d5,#bbe0c8);color:#1a5a2a;white-space:normal">Godziny<br><span style="font-weight:400">Razem</span></th>';
+  for (let d = 1; d <= days; d++) {
+    let dow = new Date(viewYear, viewMonth, d).getDay();
+    let cls = getDayClass(viewYear, viewMonth, d);
+    let holidays = getPolishHolidays(viewYear);
+    let isHol = holidays.has(viewMonth + '_' + d);
+    let dayLabel = d + '<br><span style="font-weight:400">' + PL_DAYS[dow] + '</span>' + (isHol ? '<br><span style="font-size:8px;color:#a4262c">🇵🇱</span>' : '');
+    hRow.innerHTML += '<th' + (cls ? ' class="' + cls + '"' : '') + '>' + dayLabel + '</th>';
   }
-  rows.sort((a,b)=>a.group.localeCompare(b.group)||a.name.localeCompare(b.name));
-  rows.forEach(r=>{
-    let tr=document.createElement('tr');
-    tr.innerHTML=`<td><strong>${r.name}</strong></td><td style="color:var(--text2);font-size:11px">${r.role}</td><td>${r.group}</td>
-      <td><span class="emp-status ${statusClass(r.type)}">${r.type}</span></td>
-      <td style="font-weight:700;color:var(--accent)">${r.days}</td>
-      <td style="color:var(--blue);font-size:11px">${r.period||'—'}</td>`;
+
+  let tbody = document.getElementById('table-body');
+  tbody.innerHTML = '';
+
+  // Sort employees by group, keeping order within group
+  let grouped = {};
+  let noGroup = [];
+  employees.forEach((emp, origIdx) => {
+    if (emp.group && groups.find(g => g.id === emp.group)) {
+      if (!grouped[emp.group]) grouped[emp.group] = [];
+      grouped[emp.group].push({ emp, origIdx });
+    } else {
+      noGroup.push({ emp, origIdx });
+    }
+  });
+
+  let orderNum = 1;
+  let colspan = days + 5;
+
+  function renderEmployeeRow(emp, origIdx, groupIdx) {
+    let tr = document.createElement('tr');
+    if (groupIdx >= 0) tr.className = 'g' + (groupIdx % 8);
+
+    // Number cell
+    let numTd = document.createElement('td');
+    numTd.textContent = orderNum++;
+    tr.appendChild(numTd);
+
+    // Name cell
+    let ntd = document.createElement('td');
+    // Group selector
+    let grpSel = document.createElement('select');
+    grpSel.className = 'grp-sel';
+    let optNone = document.createElement('option');
+    optNone.value = ''; optNone.textContent = '—';
+    if (!emp.group) optNone.selected = true;
+    grpSel.appendChild(optNone);
+    groups.forEach(g => {
+      let o = document.createElement('option');
+      o.value = g.id; o.textContent = g.name;
+      if (emp.group === g.id) o.selected = true;
+      grpSel.appendChild(o);
+    });
+    grpSel.dataset.ei = origIdx;
+    grpSel.addEventListener('change', async function() {
+      employees[+this.dataset.ei].group = this.value;
+      if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+      renderTable();
+    });
+
+    ntd.innerHTML = '<div class="name-cell"></div>';
+    let nameCell = ntd.querySelector('.name-cell');
+    nameCell.appendChild(grpSel);
+    let nameInp = document.createElement('input');
+    nameInp.className = 'name-input';
+    nameInp.value = emp.name;
+    nameInp.dataset.ei = origIdx;
+    nameCell.appendChild(nameInp);
+    let delBtn = document.createElement('button');
+    delBtn.className = 'del-btn'; delBtn.dataset.ei = origIdx; delBtn.textContent = '✕';
+    nameCell.appendChild(delBtn);
+    tr.appendChild(ntd);
+
+    // ── Nadgodziny 50% ──
+    let exData = getExtra(emp.name, viewYear, viewMonth);
+    let ot50td = document.createElement('td');
+    ot50td.className = 'extra-col';
+    let ot50inp = document.createElement('input');
+    ot50inp.className = 'hours-inp';
+    ot50inp.type = 'number'; ot50inp.min = '0'; ot50inp.step = '0.5';
+    ot50inp.value = (exData.ot50 !== undefined && exData.ot50 !== '') ? exData.ot50 : '0';
+    ot50inp.dataset.emp = emp.name;
+    ot50inp.addEventListener('change', function() {
+      let val = parseFloat(this.value);
+      if (isNaN(val) || val < 0) val = 0;
+      this.value = val;
+      getExtra(this.dataset.emp, viewYear, viewMonth).ot50 = val;
+      let empObj = employees.find(e => e.name === this.dataset.emp);
+      if (empObj) { let s = tr.querySelector('td[data-sumrow]'); if (s) s.textContent = calcHoursToday(empObj, viewYear, viewMonth); }
+      scheduleSave(this.dataset.emp);
+    });
+    ot50td.appendChild(ot50inp); tr.appendChild(ot50td);
+
+    // ── Nadgodziny 100% ──
+    let ot100td = document.createElement('td');
+    ot100td.className = 'extra-col';
+    let ot100inp = document.createElement('input');
+    ot100inp.className = 'hours-inp';
+    ot100inp.type = 'number'; ot100inp.min = '0'; ot100inp.step = '0.5';
+    ot100inp.value = (exData.ot100 !== undefined && exData.ot100 !== '') ? exData.ot100 : '0';
+    ot100inp.dataset.emp = emp.name;
+    ot100inp.addEventListener('change', function() {
+      let val = parseFloat(this.value);
+      if (isNaN(val) || val < 0) val = 0;
+      this.value = val;
+      getExtra(this.dataset.emp, viewYear, viewMonth).ot100 = val;
+      let empObj = employees.find(e => e.name === this.dataset.emp);
+      if (empObj) { let s = tr.querySelector('td[data-sumrow]'); if (s) s.textContent = calcHoursToday(empObj, viewYear, viewMonth); }
+      scheduleSave(this.dataset.emp);
+    });
+    ot100td.appendChild(ot100inp); tr.appendChild(ot100td);
+
+    // ── Godziny razem ──
+    let sumTd = document.createElement('td');
+    sumTd.className = 'extra-col-sum';
+    sumTd.dataset.sumrow = emp.name;
+    sumTd.textContent = calcHoursToday(emp, viewYear, viewMonth);
+    tr.appendChild(sumTd);
+
+    for (let d = 1; d <= days; d++) {
+      let td = document.createElement('td');
+      let cls = getDayClass(viewYear, viewMonth, d);
+      if (cls) td.classList.add(cls);
+      let val = statuses[sKey(emp.name, d)] || 'OBECNY';
+      let sel = document.createElement('select');
+      sel.className = 'ss ' + (S_CLASS[val] || 'obecny');
+      STATUSES.forEach(opt => {
+        let o = document.createElement('option');
+        o.value = opt; o.textContent = opt; if (opt === val) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.dataset.emp = emp.name; sel.dataset.day = d;
+      sel.addEventListener('change', function() {
+        getStatuses(viewYear, viewMonth)[sKey(this.dataset.emp, this.dataset.day)] = this.value;
+        this.className = 'ss ' + (S_CLASS[this.value] || 'obecny');
+        // if changed away from OBECNY, clear partial hours
+        if (this.value !== 'OBECNY') {
+          let ex2 = getExtra(this.dataset.emp, viewYear, viewMonth);
+          delete ex2.partial[this.dataset.day];
+          td.classList.remove('partial-day');
+        }
+        let empN = this.dataset.emp;
+        let empObj = employees.find(e => e.name === empN);
+        if (empObj) {
+          let sumTd = tr.querySelector('td[data-sumrow]');
+          if (sumTd) sumTd.textContent = calcHoursToday(empObj, viewYear, viewMonth);
+        }
+        scheduleSave(this.dataset.emp);
+      });
+
+      // Double-click: set partial hours for OBECNY day
+      td.addEventListener('dblclick', function(e) {
+        if ((statuses[sKey(emp.name, d)] || 'OBECNY') !== 'OBECNY') return;
+        e.stopPropagation();
+        // Remove any existing overlay
+        document.querySelectorAll('.partial-overlay').forEach(el => el.remove());
+        let ex2 = getExtra(emp.name, viewYear, viewMonth);
+        let currentH = ex2.partial && ex2.partial[d] !== undefined ? ex2.partial[d] : 8;
+        let overlay = document.createElement('div');
+        overlay.className = 'partial-overlay';
+        overlay.innerHTML = '<label>Godziny w dniu ' + d + ':</label>' +
+          '<input type="number" min="0" max="8" step="0.5" value="' + currentH + '" id="partial-inp" />' +
+          '<div class="p-btns">' +
+          '<button class="p-cancel">Anuluj</button>' +
+          '<button class="p-ok">Zapisz</button>' +
+          '</div>';
+        td.style.position = 'relative';
+        td.appendChild(overlay);
+        let inp = overlay.querySelector('#partial-inp');
+        inp.focus(); inp.select();
+
+        overlay.querySelector('.p-cancel').addEventListener('click', () => overlay.remove());
+        overlay.querySelector('.p-ok').addEventListener('click', () => {
+          let h = parseFloat(inp.value);
+          if (isNaN(h) || h < 0) h = 0;
+          if (h > 8) h = 8;
+          ex2.partial[d] = h;
+          if (h < 8) {
+            td.classList.add('partial-day');
+            sel.className = 'ss partial';
+          } else {
+            td.classList.remove('partial-day');
+            sel.className = 'ss obecny';
+            delete ex2.partial[d];
+          }
+          let empObj = employees.find(e => e.name === emp.name);
+          if (empObj) {
+            let sumTd = tr.querySelector('td[data-sumrow]');
+            if (sumTd) sumTd.textContent = calcHoursToday(empObj, viewYear, viewMonth);
+          }
+          scheduleSave(emp.name);
+          overlay.remove();
+        });
+
+        inp.addEventListener('keydown', e2 => {
+          if (e2.key === 'Enter') overlay.querySelector('.p-ok').click();
+          if (e2.key === 'Escape') overlay.remove();
+        });
+
+        // Close on outside click
+        setTimeout(() => {
+          document.addEventListener('click', function handler(e3) {
+            if (!overlay.contains(e3.target)) { overlay.remove(); document.removeEventListener('click', handler); }
+          });
+        }, 100);
+      });
+
+      // Restore partial day color on render
+      let exInit = getExtra(emp.name, viewYear, viewMonth);
+      if ((statuses[sKey(emp.name, d)] || 'OBECNY') === 'OBECNY' && exInit.partial && exInit.partial[d] !== undefined && exInit.partial[d] < 8) {
+        td.classList.add('partial-day');
+        sel.className = 'ss partial';
+      }
+
+      td.appendChild(sel); tr.appendChild(td);
+    }
+
     tbody.appendChild(tr);
+
+    // Name change event
+    nameInp.addEventListener('change', async function() {
+      let ei = +this.dataset.ei, oldName = employees[ei].name;
+      let newName = this.value.trim() || oldName;
+      this.value = newName;
+      employees[ei].name = newName;
+      Object.keys(monthStatuses).forEach(mk => {
+        let s = monthStatuses[mk];
+        Object.keys(s).filter(k => k.startsWith(oldName + '||')).forEach(k => {
+          s[sKey(newName, k.split('||')[1])] = s[k]; delete s[k];
+        });
+      });
+      Object.keys(spItemIds).filter(k => k.endsWith('_' + oldName)).forEach(k => {
+        spItemIds[k.replace('_' + oldName, '_' + newName)] = spItemIds[k]; delete spItemIds[k];
+      });
+      setSaveDot('saving');
+      if (siteId) { await saveEmployees(); await saveMonthForEmployee(newName, viewYear, viewMonth); }
+      setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000);
+    });
+
+    // Delete event
+    delBtn.addEventListener('click', async function() {
+      let ei = +this.dataset.ei, empName = employees[ei].name;
+      if (!confirm('Usunąć pracownika "' + empName + '" ze wszystkich miesięcy?')) return;
+      employees.splice(ei, 1);
+      Object.keys(monthStatuses).forEach(mk => {
+        Object.keys(monthStatuses[mk]).filter(k => k.startsWith(empName + '||')).forEach(k => delete monthStatuses[mk][k]);
+      });
+      showLoading('Usuwanie...');
+      if (siteId) { await deleteEmployeeData(empName); await saveEmployees(); }
+      hideLoading(); renderTable();
+    });
+  }
+
+  // Render grouped employees
+  groups.forEach((g, gi) => {
+    if (!grouped[g.id] || !grouped[g.id].length) return;
+    // Group header
+    let headerTr = document.createElement('tr');
+    headerTr.className = 'group-header';
+    let headerTd = document.createElement('td');
+    headerTd.colSpan = colspan;
+    headerTd.innerHTML = '<span style="background:' + GROUP_COLORS[gi % GROUP_COLORS.length] + ';color:' + GROUP_COLORS_DARK[gi % GROUP_COLORS_DARK.length] + ';padding:2px 8px;border-radius:10px;margin-right:6px;font-size:10px">●</span>' + g.name;
+    headerTr.appendChild(headerTd);
+    tbody.appendChild(headerTr);
+    grouped[g.id].forEach(({ emp, origIdx }) => renderEmployeeRow(emp, origIdx, gi));
   });
+
+  // Ungrouped employees
+  if (noGroup.length) {
+    let headerTr = document.createElement('tr');
+    headerTr.className = 'group-header';
+    let headerTd = document.createElement('td');
+    headerTd.colSpan = colspan;
+    headerTd.textContent = 'Bez grupy';
+    headerTr.appendChild(headerTd);
+    tbody.appendChild(headerTr);
+    noGroup.forEach(({ emp, origIdx }) => renderEmployeeRow(emp, origIdx, -1));
+  }
 }
 
-function showLoading(t){document.getElementById('loading-text').textContent=t||'Ładowanie...';document.getElementById('loading').classList.remove('hidden');}
-function hideLoading(){document.getElementById('loading').classList.add('hidden');}
-function showToast(msg){let t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
+// ── Navigation ─────────────────────────────────────────────────
+document.getElementById('prev-month').addEventListener('click', () => { viewMonth--; if(viewMonth<0){viewMonth=11;viewYear--;} renderTable(); });
+document.getElementById('next-month').addEventListener('click', () => { viewMonth++; if(viewMonth>11){viewMonth=0;viewYear++;} renderTable(); });
+
+document.getElementById('add-employee').addEventListener('click', async () => {
+  employees.push({ name: 'Nowy pracownik', group: '' });
+  renderTable();
+  let inputs = document.querySelectorAll('.name-input');
+  if (inputs.length) { let last = inputs[inputs.length-1]; last.focus(); last.select(); }
+  if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+});
+
+// ── XLSX export ────────────────────────────────────────────────
+document.getElementById('export-btn').addEventListener('click', () => {
+  let wb = XLSX.utils.book_new();
+  let days = getDays(viewYear, viewMonth);
+  let statuses = getStatuses(viewYear, viewMonth);
+  let header = ['#', 'Grupa', 'Pracownik', 'Nadgodziny 50%', 'Nadgodziny 100%', 'Godziny Razem'];
+  let holidays = getPolishHolidays(viewYear);
+  for (let d = 1; d <= days; d++) {
+    let dow = new Date(viewYear, viewMonth, d).getDay();
+    let isHol = holidays.has(viewMonth + '_' + d);
+    header.push(d + ' ' + PL_DAYS[dow] + (isHol ? ' 🇵🇱' : ''));
+  }
+  let rows = [header];
+  let num = 1;
+  groups.forEach(g => {
+    let empInGroup = employees.filter(e => e.group === g.id);
+    if (!empInGroup.length) return;
+    rows.push([g.name.toUpperCase(), '', '', ...Array(days).fill('')]);
+    empInGroup.forEach(emp => {
+      let exd = getExtra(emp.name, viewYear, viewMonth);
+      let row = [num++, g.name, emp.name, parseFloat(exd.ot50)||0, parseFloat(exd.ot100)||0, calcHoursToday(emp, viewYear, viewMonth)];
+      for (let d = 1; d <= days; d++) row.push(statuses[sKey(emp.name, d)] || 'OBECNY');
+      rows.push(row);
+    });
+  });
+  let ungrouped = employees.filter(e => !e.group || !groups.find(g => g.id === e.group));
+  if (ungrouped.length) {
+    rows.push(['BEZ GRUPY', '', '', ...Array(days).fill('')]);
+    ungrouped.forEach(emp => {
+      let exd2 = getExtra(emp.name, viewYear, viewMonth);
+      let row = [num++, '', emp.name, parseFloat(exd2.ot50)||0, parseFloat(exd2.ot100)||0, calcHoursToday(emp, viewYear, viewMonth)];
+      for (let d = 1; d <= days; d++) row.push(statuses[sKey(emp.name, d)] || 'OBECNY');
+      rows.push(row);
+    });
+  }
+  let ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, PL_MONTHS[viewMonth].substring(0,3) + '_' + viewYear);
+  XLSX.writeFile(wb, 'Obecnosc_' + PL_MONTHS[viewMonth] + '_' + viewYear + '.xlsx');
+});
+
+function showLoading(txt) { document.getElementById('loading-text').textContent = txt||'Ładowanie...'; document.getElementById('loading').classList.remove('hidden'); }
+function hideLoading() { document.getElementById('loading').classList.add('hidden'); }
+function showAuthError(e) { let el=document.getElementById('auth-error'); el.textContent='Błąd: '+(e.message||e); el.style.display='block'; }
+function showToast(msg) { let t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3500); }
+
+// ── Import ─────────────────────────────────────────────────────
+document.getElementById('import-btn').addEventListener('click', () => {
+  document.getElementById('import-file').value = '';
+  document.getElementById('import-file').click();
+});
+
+document.getElementById('import-file').addEventListener('change', async function() {
+  let file = this.files[0];
+  if (!file) return;
+  let names = [];
+
+  try {
+    if (file.name.endsWith('.csv')) {
+      let text = await file.text();
+      names = text.split(/\r?\n/).map(l => l.trim().replace(/^["']|["']$/g, '')).filter(n => n.length > 0);
+    } else {
+      let buf = await file.arrayBuffer();
+      let wb = XLSX.read(buf, { type: 'array' });
+      let ws = wb.Sheets[wb.SheetNames[0]];
+      let rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      rows.forEach(row => {
+        let val = (row[0] || '').toString().trim();
+        if (val) names.push(val);
+      });
+    }
+  } catch(e) { showToast('Błąd importu: ' + e.message); return; }
+
+  if (!names.length) { showToast('Nie znaleziono żadnych nazwisk w pliku.'); return; }
+
+  // Skip header row if it looks like a header (no space, all caps, or "Pracownik")
+  let first = names[0].toLowerCase();
+  if (first === 'pracownik' || first === 'nazwisko' || first === 'imię i nazwisko' || first === 'name') names.shift();
+
+  if (!names.length) { showToast('Plik nie zawiera danych.'); return; }
+
+  let added = 0;
+  names.forEach(name => {
+    if (!employees.find(e => e.name.toLowerCase() === name.toLowerCase())) {
+      employees.push({ name, group: '' });
+      added++;
+    }
+  });
+
+  if (added === 0) { showToast('Wszyscy pracownicy już istnieją na liście.'); return; }
+
+  showToast('Zaimportowano ' + added + ' pracowników ✓');
+  renderTable();
+  if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+});
 
 
 
-// ── Local login ────────────────────────────────────────────────
+// ── Local login (bypasses Azure) ───────────────────────────────
 document.getElementById('local-login-btn').addEventListener('click', function() {
   let email = document.getElementById('local-email').value.trim();
   let pass  = document.getElementById('local-password').value;
   let err   = document.getElementById('local-error');
   err.style.display = 'none';
-  if (!email || !pass) { err.textContent = 'Wpisz e-mail i hasło.'; err.style.display = 'block'; return; }
-  if (email !== CONFIG.extraLogin.email) { err.textContent = 'Nieprawidłowy e-mail.'; err.style.display = 'block'; return; }
-  if (pass !== CONFIG.extraLogin.password) { err.textContent = 'Nieprawidłowe hasło.'; err.style.display = 'block'; return; }
+
+  if (!email || !pass) {
+    err.textContent = 'Wpisz e-mail i hasło.';
+    err.style.display = 'block';
+    return;
+  }
+  if (email !== CONFIG.extraLogin.email) {
+    err.textContent = 'Nieprawidłowy e-mail.';
+    err.style.display = 'block';
+    return;
+  }
+  if (pass !== CONFIG.extraLogin.password) {
+    err.textContent = 'Nieprawidłowe hasło.';
+    err.style.display = 'block';
+    return;
+  }
+  // Logged in locally
   account = { name: email, username: email, local: true };
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('user-info').textContent = email;
-  loadLocalDashData();
+  // Load data from localStorage
+  loadLocalData();
 });
 
 document.getElementById('local-password').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') document.getElementById('local-login-btn').click();
 });
 
-function loadLocalDashData() {
+// ── Local data storage (when not using Azure) ──────────────────
+function loadLocalData() {
   try {
     let raw = localStorage.getItem('att-employees');
-    if (raw) { let p = JSON.parse(raw); employees = p.employees||[]; groups = p.groups||[]; }
+    if (raw) {
+      let parsed = JSON.parse(raw);
+      employees = parsed.employees || [];
+      groups = parsed.groups || [];
+    }
     let rawS = localStorage.getItem('att-statuses');
     if (rawS) monthStatuses = JSON.parse(rawS);
     let rawE = localStorage.getItem('att-extra');
     if (rawE) extraData = JSON.parse(rawE);
-  } catch(e) {}
-  renderDashboard();
-  hideLoading();
+  } catch(e) { console.error('Load error:', e); }
+  let now = new Date(); viewYear = now.getFullYear(); viewMonth = now.getMonth();
+  renderTable(); renderGroupPanel();
+}
+
+function saveLocalData() {
+  try {
+    localStorage.setItem('att-employees', JSON.stringify({ employees, groups }));
+    localStorage.setItem('att-statuses', JSON.stringify(monthStatuses));
+    localStorage.setItem('att-extra', JSON.stringify(extraData));
+  } catch(e) { console.error('Save error:', e); }
 }
 
 // ── Theme switcher ─────────────────────────────────────────────
@@ -838,9 +1309,15 @@ function applyTheme(theme) {
   localStorage.setItem('att-theme', theme);
 }
 document.addEventListener('click', e => {
-  if (e.target.classList.contains('theme-btn')) applyTheme(e.target.dataset.theme);
+  if (e.target.classList.contains('theme-btn')) {
+    applyTheme(e.target.dataset.theme);
+  }
 });
-(function() { applyTheme(localStorage.getItem('att-theme') || 'default'); })();
+// Restore saved theme
+(function() {
+  let saved = localStorage.getItem('att-theme') || 'default';
+  applyTheme(saved);
+})();
 
 initMsal();
 </script>
