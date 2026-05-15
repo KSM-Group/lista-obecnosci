@@ -13,11 +13,11 @@ const CONFIG = {
   redirectUri: "https://ksm-group.github.io/lista-obecnosci/",
   // Dodatkowy login omijający Azure
   appsScriptUrl: "https://script.google.com/macros/s/AKfycbwydWACfM8KWufP4jQXz7aG27Ffn7mEOKYg39EYbzz0rkvwHPGO3PTT9XFxONfMKuS6/exec",
-  extraLogin: {
-    email: "kucia.michal@gmail.com",
-    // Zmień hasło poniżej na swoje:
-    password: "Lukrecja123!@#"
-  }
+  extraLogins: [
+    { email: "kucia.michal@gmail.com", password: "USTAW_HASLO_TUTAJ" },
+    { email: "test@test.pl", password: "test" }
+  ],
+  extraLogin: { email: "kucia.michal@gmail.com", password: "USTAW_HASLO_TUTAJ" }
 };
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -516,7 +516,6 @@ select.ss.partial { color: #e65100 !important; font-weight: 700 !important; }
     <button class="tb" id="import-btn">&#8679; Import</button>
     <input type="file" id="import-file" accept=".xlsx,.csv" style="display:none" />
     <a href="dashboard.html" class="tb" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px">📊 Dashboard</a>
-    <button class="tb" onclick="syncQRAttendance()" title="Synchronizuj dane z QR">🔄 QR Sync</button>
     <button class="tb primary" id="export-btn">&#8595; XLSX</button>
     <div class="theme-switcher">
       <span class="theme-switcher-label">Motyw:</span>
@@ -679,6 +678,7 @@ async function loadFromSharePoint() {
   renderTable(); renderGroupPanel();
   hideLoading();
   syncQRAttendance();
+  enforceDemoMode();
 }
 
 async function saveEmployees() {
@@ -994,12 +994,16 @@ function renderTable() {
       }
       let cls = getDayClass(viewYear, viewMonth, d);
       if (cls) td.classList.add(cls);
-      let val = statuses[sKey(emp.name, d)] || 'OBECNY';
+      let today = new Date();
+      let cellDate = new Date(viewYear, viewMonth, d);
+      let isPast = cellDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      let savedVal = statuses[sKey(emp.name, d)];
+      let val = savedVal || '';
       let sel = document.createElement('select');
-      sel.className = 'ss ' + (S_CLASS[val] || 'obecny');
+      sel.className = 'ss ' + (val ? (S_CLASS[val] || 'obecny') : '');
       STATUSES.forEach(opt => {
         let o = document.createElement('option');
-        o.value = opt; o.textContent = opt; if (opt === val) o.selected = true;
+        o.value = opt; o.textContent = opt === '' ? '—' : opt; if (opt === val) o.selected = true;
         sel.appendChild(o);
       });
       sel.dataset.emp = emp.name; sel.dataset.day = d;
@@ -1023,7 +1027,7 @@ function renderTable() {
 
       // Double-click: set partial hours for OBECNY day
       td.addEventListener('dblclick', function(e) {
-        if ((statuses[sKey(emp.name, d)] || 'OBECNY') !== 'OBECNY') return;
+        if ((statuses[sKey(emp.name, d)] || '') !== 'OBECNY') return;
         e.stopPropagation();
         // Remove any existing overlay
         document.querySelectorAll('.partial-overlay').forEach(el => el.remove());
@@ -1272,13 +1276,9 @@ document.getElementById('local-login-btn').addEventListener('click', function() 
     err.style.display = 'block';
     return;
   }
-  if (email !== CONFIG.extraLogin.email) {
-    err.textContent = 'Nieprawidłowy e-mail.';
-    err.style.display = 'block';
-    return;
-  }
-  if (pass !== CONFIG.extraLogin.password) {
-    err.textContent = 'Nieprawidłowe hasło.';
+  let validUser = CONFIG.extraLogins.find(u => u.email === email && u.password === pass);
+  if (!validUser) {
+    err.textContent = 'Nieprawidłowy e-mail lub hasło.';
     err.style.display = 'block';
     return;
   }
@@ -1326,6 +1326,7 @@ async function loadLocalData() {
 }
 
 async function saveLocalData() {
+  if (isDemoUser()) { console.log('Demo mode - save blocked'); return; }
   let data = JSON.stringify({ employees, groups, monthStatuses, extraData });
   // Save to localStorage as backup
   try {
@@ -1407,6 +1408,33 @@ async function syncQRAttendance() {
 
 // Sync QR attendance every 2 minutes
 setInterval(syncQRAttendance, 120000);
+
+
+// ── Demo mode ─────────────────────────────────────────────────
+function isDemoUser() {
+  let sess = localStorage.getItem('att-session');
+  if (!sess) return false;
+  try { return JSON.parse(sess).email === 'test@test.pl'; } catch(e) { return false; }
+}
+
+function enforceDemoMode() {
+  if (!isDemoUser()) return;
+  // Hide edit buttons
+  document.querySelectorAll('.del-btn, #add-emp-btn, #import-btn').forEach(el => el.style.display = 'none');
+  // Disable name inputs
+  document.querySelectorAll('.name-input').forEach(el => el.disabled = true);
+  // Disable group selects
+  document.querySelectorAll('.grp-sel').forEach(el => el.disabled = true);
+  // Show demo banner
+  let banner = document.getElementById('demo-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'demo-banner';
+    banner.style.cssText = 'background:#1843c8;color:#fff;text-align:center;padding:8px;font-size:12px;font-weight:600;letter-spacing:.05em;';
+    banner.innerHTML = '🎯 TRYB DEMO — podgląd tylko do odczytu | Demo: test@test.pl / test';
+    document.body.insertBefore(banner, document.body.firstChild);
+  }
+}
 
 // ── Theme switcher ─────────────────────────────────────────────
 const THEMES = ['default','dark','brutalist','aurora','coral','aqua','candy'];
