@@ -12,10 +12,11 @@ const CONFIG = {
   listName: "ListaObecnosci",
   redirectUri: "https://ksm-group.github.io/lista-obecnosci/",
   // Dodatkowy login omijający Azure
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbwydWACfM8KWufP4jQXz7aG27Ffn7mEOKYg39EYbzz0rkvwHPGO3PTT9XFxONfMKuS6/exec",
   extraLogin: {
     email: "kucia.michal@gmail.com",
     // Zmień hasło poniżej na swoje:
-    password: "Lukrecja123!@#"
+    password: "USTAW_HASLO_TUTAJ"
   }
 };
 </script>
@@ -475,7 +476,7 @@ select.ss.partial { color: #e65100 !important; font-weight: 700 !important; }
 
 <div id="auth-screen">
   <div class="auth-card">
-    <img src="logo.png" width="160" alt="Logo" style="margin-bottom:8px;opacity:0.85;border-radius:16px;background:#fff;padding:12px;" />
+    <img src="logo.jpg" width="200" alt="Logo" style="margin-bottom:8px;opacity:0.9;border-radius:20px;background:#fff;padding:14px;" />
     <h1>SECP</h1>
 
     <!-- Email/password login -->
@@ -1275,10 +1276,10 @@ document.getElementById('local-login-btn').addEventListener('click', function() 
   }
   // Logged in locally
   account = { name: email, username: email, local: true };
+  localStorage.setItem('att-session', JSON.stringify({ email: email }));
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('user-info').textContent = email;
-  // Load data from localStorage
   loadLocalData();
 });
 
@@ -1287,28 +1288,49 @@ document.getElementById('local-password').addEventListener('keydown', function(e
 });
 
 // ── Local data storage (when not using Azure) ──────────────────
-function loadLocalData() {
+async function loadLocalData() {
+  showLoading('Ładowanie danych...');
   try {
-    let raw = localStorage.getItem('att-employees');
-    if (raw) {
-      let parsed = JSON.parse(raw);
-      employees = parsed.employees || [];
-      groups = parsed.groups || [];
+    let resp = await fetch(CONFIG.appsScriptUrl);
+    let raw = await resp.text();
+    if (raw && raw !== '{}') {
+      let data = JSON.parse(raw);
+      employees = data.employees || [];
+      groups = data.groups || [];
+      monthStatuses = data.monthStatuses || {};
+      extraData = data.extraData || {};
     }
-    let rawS = localStorage.getItem('att-statuses');
-    if (rawS) monthStatuses = JSON.parse(rawS);
-    let rawE = localStorage.getItem('att-extra');
-    if (rawE) extraData = JSON.parse(rawE);
-  } catch(e) { console.error('Load error:', e); }
+  } catch(e) {
+    console.error('Load error:', e);
+    // Fallback to localStorage
+    try {
+      let raw = localStorage.getItem('att-employees');
+      if (raw) { let p = JSON.parse(raw); employees = p.employees||[]; groups = p.groups||[]; }
+      let rawS = localStorage.getItem('att-statuses');
+      if (rawS) monthStatuses = JSON.parse(rawS);
+      let rawE = localStorage.getItem('att-extra');
+      if (rawE) extraData = JSON.parse(rawE);
+    } catch(e2) {}
+  }
+  hideLoading();
   let now = new Date(); viewYear = now.getFullYear(); viewMonth = now.getMonth();
   renderTable(); renderGroupPanel();
 }
 
-function saveLocalData() {
+async function saveLocalData() {
+  let data = JSON.stringify({ employees, groups, monthStatuses, extraData });
+  // Save to localStorage as backup
   try {
     localStorage.setItem('att-employees', JSON.stringify({ employees, groups }));
     localStorage.setItem('att-statuses', JSON.stringify(monthStatuses));
     localStorage.setItem('att-extra', JSON.stringify(extraData));
+  } catch(e) {}
+  // Save to Google Sheets
+  try {
+    await fetch(CONFIG.appsScriptUrl, {
+      method: 'POST',
+      body: data
+    });
   } catch(e) { console.error('Save error:', e); }
 }
 
