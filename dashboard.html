@@ -300,7 +300,7 @@ body.theme-candy .stat-badge.hours { background: #fdf4ff; color: #d946ef; }
 <div id="auth-screen">
   <div class="auth-card">
     
-    <img src="logo.jpg" width="160" alt="Logo" style="margin-bottom:8px;opacity:0.85;border-radius:16px;background:#fff;padding:12px;" />
+    <img src="logo.jpg" width="200" alt="Logo" style="margin-bottom:8px;opacity:0.9;border-radius:20px;background:#fff;padding:14px;" />
     <h1>SECP</h1>
     <p>Zaloguj się kontem Microsoft 365</p>
     <button class="ms-btn" id="login-btn">
@@ -379,9 +379,10 @@ const CONFIG = {
   sharePointSite: "https://TWOJAFIRMA.sharepoint.com",
   listName: "ListaObecnosci",
   redirectUri: "https://ksm-group.github.io/lista-obecnosci/dashboard.htmldashboard.html",
+  appsScriptUrl: "https://script.google.com/macros/s/AKfycbwydWACfM8KWufP4jQXz7aG27Ffn7mEOKYg39EYbzz0rkvwHPGO3PTT9XFxONfMKuS6/exec",
   extraLogin: {
     email: "kucia.michal@gmail.com",
-    password: "Lukrecja123!@#"
+    password: "USTAW_HASLO_TUTAJ"
   }
 };
 
@@ -804,6 +805,7 @@ document.getElementById('local-login-btn').addEventListener('click', function() 
   if (email !== CONFIG.extraLogin.email) { err.textContent = 'Nieprawidłowy e-mail.'; err.style.display = 'block'; return; }
   if (pass !== CONFIG.extraLogin.password) { err.textContent = 'Nieprawidłowe hasło.'; err.style.display = 'block'; return; }
   account = { name: email, username: email, local: true };
+  localStorage.setItem('att-session', JSON.stringify({ email: email }));
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('user-info').textContent = email;
@@ -814,17 +816,31 @@ document.getElementById('local-password').addEventListener('keydown', function(e
   if (e.key === 'Enter') document.getElementById('local-login-btn').click();
 });
 
-function loadLocalDashData() {
+async function loadLocalDashData() {
+  showLoading('Ładowanie danych...');
   try {
-    let raw = localStorage.getItem('att-employees');
-    if (raw) { let p = JSON.parse(raw); employees = p.employees||[]; groups = p.groups||[]; }
-    let rawS = localStorage.getItem('att-statuses');
-    if (rawS) monthStatuses = JSON.parse(rawS);
-    let rawE = localStorage.getItem('att-extra');
-    if (rawE) extraData = JSON.parse(rawE);
-  } catch(e) {}
-  renderDashboard();
+    let resp = await fetch(CONFIG.appsScriptUrl);
+    let raw = await resp.text();
+    if (raw && raw !== '{}') {
+      let data = JSON.parse(raw);
+      employees = data.employees || [];
+      groups = data.groups || [];
+      monthStatuses = data.monthStatuses || {};
+      extraData = data.extraData || {};
+    }
+  } catch(e) {
+    // Fallback to localStorage
+    try {
+      let raw = localStorage.getItem('att-employees');
+      if (raw) { let p = JSON.parse(raw); employees = p.employees||[]; groups = p.groups||[]; }
+      let rawS = localStorage.getItem('att-statuses');
+      if (rawS) monthStatuses = JSON.parse(rawS);
+      let rawE = localStorage.getItem('att-extra');
+      if (rawE) extraData = JSON.parse(rawE);
+    } catch(e2) {}
+  }
   hideLoading();
+  renderDashboard();
 }
 
 // ── Theme switcher ─────────────────────────────────────────────
@@ -842,7 +858,24 @@ document.addEventListener('click', e => {
 });
 (function() { applyTheme(localStorage.getItem('att-theme') || 'default'); })();
 
-initMsal();
+// ── Auto-login from session ────────────────────────────────────
+(function() {
+  let saved = localStorage.getItem('att-session');
+  if (saved) {
+    try {
+      let sess = JSON.parse(saved);
+      if (sess.email) {
+        account = { name: sess.email, username: sess.email, local: true };
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        document.getElementById('user-info').textContent = sess.email;
+        loadLocalDashData();
+        return;
+      }
+    } catch(e) {}
+  }
+  initMsal();
+})();
 </script>
 </body>
 </html>
