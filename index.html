@@ -694,7 +694,7 @@ async function saveMonthForEmployee(emp, y, m) {
   let empS = {};
   for (let d = 1; d <= days; d++) {
     let k = sKey(emp, d);
-    empS[k] = s[k] || 'OBECNY';
+    empS[k] = s[k] || '';
   }
   let ex = getExtra(emp, y, m);
   let spKey = mk + '_' + emp;
@@ -740,7 +740,7 @@ function calcHoursToday(emp, y, m) {
     let dow = new Date(y, m, d).getDay();
     if (dow === 0 || dow === 6) continue;
     if (holidays.has(m + '_' + d)) continue;
-    let val = statuses[sKey(emp.name, d)] || 'OBECNY';
+    let val = statuses[sKey(emp.name, d)] || '';
     if (val === 'OBECNY') {
       // Check if partial hours set for this day
       let ph = ex.partial && ex.partial[d] !== undefined ? parseFloat(ex.partial[d]) : 8;
@@ -1027,7 +1027,8 @@ function renderTable() {
 
       // Double-click: set partial hours for OBECNY day
       td.addEventListener('dblclick', function(e) {
-        if ((statuses[sKey(emp.name, d)] || '') !== 'OBECNY') return;
+        let curStatus = statuses[sKey(emp.name, d)] || '';
+if (curStatus !== 'OBECNY') return;
         e.stopPropagation();
         // Remove any existing overlay
         document.querySelectorAll('.partial-overlay').forEach(el => el.remove());
@@ -1084,7 +1085,7 @@ function renderTable() {
 
       // Restore partial day color on render
       let exInit = getExtra(emp.name, viewYear, viewMonth);
-      if ((statuses[sKey(emp.name, d)] || 'OBECNY') === 'OBECNY' && exInit.partial && exInit.partial[d] !== undefined && exInit.partial[d] < 8) {
+      if ((statuses[sKey(emp.name, d)] || '') === 'OBECNY' && exInit.partial && exInit.partial[d] !== undefined && exInit.partial[d] < 8) {
         td.classList.add('partial-day');
         sel.className = 'ss partial';
       }
@@ -1188,7 +1189,7 @@ document.getElementById('export-btn').addEventListener('click', () => {
     empInGroup.forEach(emp => {
       let exd = getExtra(emp.name, viewYear, viewMonth);
       let row = [num++, g.name, emp.name, parseFloat(exd.ot50)||0, parseFloat(exd.ot100)||0, calcHoursToday(emp, viewYear, viewMonth)];
-      for (let d = 1; d <= days; d++) row.push(statuses[sKey(emp.name, d)] || 'OBECNY');
+      for (let d = 1; d <= days; d++) row.push(statuses[sKey(emp.name, d)] || '');
       rows.push(row);
     });
   });
@@ -1198,7 +1199,7 @@ document.getElementById('export-btn').addEventListener('click', () => {
     ungrouped.forEach(emp => {
       let exd2 = getExtra(emp.name, viewYear, viewMonth);
       let row = [num++, '', emp.name, parseFloat(exd2.ot50)||0, parseFloat(exd2.ot100)||0, calcHoursToday(emp, viewYear, viewMonth)];
-      for (let d = 1; d <= days; d++) row.push(statuses[sKey(emp.name, d)] || 'OBECNY');
+      for (let d = 1; d <= days; d++) row.push(statuses[sKey(emp.name, d)] || '');
       rows.push(row);
     });
   }
@@ -1409,6 +1410,35 @@ async function syncQRAttendance() {
 // Sync QR attendance every 2 minutes
 setInterval(syncQRAttendance, 120000);
 
+
+
+// ── Multi-client support ────────────────────────────────────────
+async function loadClientConfig() {
+  let params = new URLSearchParams(window.location.search);
+  let clientId = params.get('client');
+  if (!clientId) return; // Use default config
+
+  // Load client config from master Google Sheet
+  try {
+    let resp = await fetch(CONFIG.appsScriptUrl + '?action=getClient&id=' + clientId);
+    let raw = await resp.text();
+    let data = JSON.parse(raw);
+    if (data.client) {
+      let cl = data.client;
+      // Override config with client-specific values
+      if (cl.script) CONFIG.appsScriptUrl = cl.script;
+      if (cl.pass) CONFIG.extraLogins = CONFIG.extraLogins.map(u =>
+        u.email === cl.loginEmail ? {...u, password: cl.pass} : u
+      ).concat([{ email: cl.loginEmail || cl.email, password: cl.pass }]);
+      // Store client branding
+      localStorage.setItem('secp-client-id', clientId);
+      localStorage.setItem('secp-client-name', cl.name || 'SECP');
+    }
+  } catch(e) {
+    // Fallback - use default config
+    console.log('Client config load failed, using default');
+  }
+}
 
 // ── Demo mode ─────────────────────────────────────────────────
 function isDemoUser() {
