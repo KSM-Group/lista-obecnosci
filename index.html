@@ -17,7 +17,7 @@ const CONFIG = {
     { email: "kucia.michal@gmail.com", password: "Lukrecja123!@#" },
     { email: "test@test.pl", password: "test" }
   ],
-  extraLogin: { email: "kucia.michal@gmail.com", password: "USTAW_HASLO_TUTAJ" }
+  extraLogin: { email: "kucia.michal@gmail.com", password: "Lukrecja123!@#" }
 };
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -679,6 +679,7 @@ async function loadFromSharePoint() {
   hideLoading();
   syncQRAttendance();
   enforceDemoMode();
+  reapplyTheme();
 }
 
 async function saveEmployees() {
@@ -1289,6 +1290,7 @@ document.getElementById('local-login-btn').addEventListener('click', function() 
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('user-info').textContent = email;
+  reapplyTheme();
   loadLocalData();
 });
 
@@ -1486,6 +1488,12 @@ document.addEventListener('click', e => {
   let saved = localStorage.getItem('att-theme') || 'default';
   applyTheme(saved);
 })();
+
+// Re-apply theme after app loads (fixes theme not applying after login)
+function reapplyTheme() {
+  let saved = localStorage.getItem('att-theme') || 'default';
+  applyTheme(saved);
+}
 
 initMsal();
 </script>
