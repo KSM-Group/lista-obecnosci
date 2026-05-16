@@ -327,7 +327,7 @@ body.theme-candy .stat-badge.hours { background: #fdf4ff; color: #d946ef; }
   <div class="topbar">
     <h1>SECP</h1>
     <span class="user-info" id="user-info"></span>
-    <a class="back-btn" href="index.html">&#8592; Lista obecności</a>
+    <a class="back-btn" href="index.html" onclick="return true;">&#8592; Lista obecności</a>
     <button class="tb" id="refresh-btn">&#8635; Odśwież</button>
     <div class="theme-switcher">
       <span class="theme-switcher-label">Motyw:</span>
@@ -391,7 +391,7 @@ const CONFIG = {
   tenantId: "TWOJ_TENANT_ID",
   sharePointSite: "https://TWOJAFIRMA.sharepoint.com",
   listName: "ListaObecnosci",
-  redirectUri: "https://ksm-group.github.io/lista-obecnosci/dashboard.htmldashboard.html",
+  redirectUri: "https://ksm-group.github.io/lista-obecnosci/dashboard.html",
   appsScriptUrl: "https://script.google.com/macros/s/AKfycbwydWACfM8KWufP4jQXz7aG27Ffn7mEOKYg39EYbzz0rkvwHPGO3PTT9XFxONfMKuS6/exec",
   extraLogin: {
     email: "kucia.michal@gmail.com",
@@ -873,6 +873,7 @@ document.addEventListener('click', e => {
 
 // ── Auto-login from session ────────────────────────────────────
 (function() {
+  // Check local session first
   let saved = localStorage.getItem('att-session');
   if (saved) {
     try {
@@ -887,6 +888,7 @@ document.addEventListener('click', e => {
       }
     } catch(e) {}
   }
+  // Hide auth screen initially and check MSAL silently
   initMsal();
 })();
 </script>
