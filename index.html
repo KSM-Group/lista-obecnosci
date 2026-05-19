@@ -472,39 +472,39 @@ select.ss.partial { color: #e65100 !important; font-weight: 700 !important; }
 
 /* ── Dark mode ── */
 body.dark {
-  --bg:#0a0c10; --surface:#111318; --surface2:#1a1e28; --surface3:#222736;
+  --bg:#111827; --surface:#1e2637; --surface2:#263147; --surface3:#2d3a55;
   --border:rgba(255,255,255,.07); --border2:rgba(255,255,255,.13);
-  --text:#f1f5f9; --text2:#94a3b8; --text3:#475569;
-  background: #0a0c10; color: #f1f5f9;
+  --text:#f1f5f9; --text2:#94a3b8; --text3:#64748b;
+  background: #111827; color: #f1f5f9;
 }
-body.dark .topbar { background: #111318 !important; border-color: rgba(255,255,255,.07) !important; }
+body.dark .topbar { background: #1e2637 !important; border-color: rgba(255,255,255,.07) !important; }
 body.dark button.tb { background: #1a1e28 !important; border-color: rgba(255,255,255,.13) !important; color: #94a3b8 !important; }
 body.dark button.tb:hover { border-color: #0ea5e9 !important; color: #0ea5e9 !important; }
 body.dark button.tb.primary { background: linear-gradient(135deg,#1843c8,#0ea5e9) !important; color: #fff !important; }
 body.dark .month-label { background: #1a1e28 !important; border-color: rgba(255,255,255,.13) !important; color: #f1f5f9 !important; }
 body.dark .month-nav button { background: #1a1e28 !important; border-color: rgba(255,255,255,.13) !important; color: #94a3b8 !important; }
 body.dark .table-wrap { border-color: rgba(255,255,255,.07) !important; }
-body.dark thead th { background: #1a1e28 !important; color: #475569 !important; border-color: rgba(255,255,255,.07) !important; }
+body.dark thead th { background: #263147 !important; color: #475569 !important; border-color: rgba(255,255,255,.07) !important; }
 body.dark thead th:nth-child(1), body.dark thead th:nth-child(2) { background: #1a1e28 !important; }
 body.dark tbody td { border-color: rgba(255,255,255,.05) !important; color: #94a3b8 !important; }
-body.dark tbody td:nth-child(1), body.dark tbody td:nth-child(2) { background: #111318 !important; }
-body.dark tbody tr:hover td { background: #1a1e28 !important; }
-body.dark tbody tr:hover td:nth-child(1), body.dark tbody tr:hover td:nth-child(2) { background: #222736 !important; }
-body.dark td.col-we { background: #1a1e28 !important; }
+body.dark tbody td:nth-child(1), body.dark tbody td:nth-child(2) { background: #1e2637 !important; }
+body.dark tbody tr:hover td { background: #263147 !important; }
+body.dark tbody tr:hover td:nth-child(1), body.dark tbody tr:hover td:nth-child(2) { background: #2d3a55 !important; }
+body.dark td.col-we { background: #263147 !important; }
 body.dark td.col-hol { background: rgba(239,68,68,.08) !important; }
 body.dark td.extra-col { background: rgba(24,67,200,.06) !important; }
 body.dark td.extra-col-sum { background: rgba(14,165,233,.1) !important; color: #38bdf8 !important; }
-body.dark tr.group-header td { background: #1a1e28 !important; color: #475569 !important; }
-body.dark tr.group-header td:nth-child(1), body.dark tr.group-header td:nth-child(2) { background: #222736 !important; }
+body.dark tr.group-header td { background: #263147 !important; color: #475569 !important; }
+body.dark tr.group-header td:nth-child(1), body.dark tr.group-header td:nth-child(2) { background: #2d3a55 !important; }
 body.dark .name-input { color: #f1f5f9 !important; background: transparent !important; }
 body.dark .name-input:focus { background: #1a1e28 !important; }
 body.dark .grp-sel { background: #1a1e28 !important; color: #475569 !important; border-color: rgba(255,255,255,.1) !important; }
 body.dark .hours-inp { background: #1a1e28 !important; border-color: rgba(255,255,255,.13) !important; color: #38bdf8 !important; }
-body.dark #group-panel { background: #111318 !important; border-color: rgba(255,255,255,.13) !important; }
+body.dark #group-panel { background: #1e2637 !important; border-color: rgba(255,255,255,.13) !important; }
 body.dark #group-panel input { background: #1a1e28 !important; border-color: rgba(255,255,255,.13) !important; color: #f1f5f9 !important; }
 body.dark .user-info { background: #1a1e28 !important; border-color: rgba(255,255,255,.07) !important; color: #475569 !important; }
 body.dark #auth-screen { background: radial-gradient(ellipse at 30% 50%, rgba(24,67,200,.12) 0%, transparent 60%) !important; }
-body.dark .theme-switcher { background: #111318 !important; border-color: rgba(255,255,255,.07) !important; }
+body.dark .theme-switcher { background: #1e2637 !important; border-color: rgba(255,255,255,.07) !important; }
 body.dark .secp-footer { border-color: rgba(255,255,255,.07) !important; }
 
 /* ── Coral Sunrise ── */
@@ -697,9 +697,11 @@ body.dark .dark-toggle::after { left: 18px; background: #fff; }
     <button class="dark-toggle" onclick="toggleDark()" id="dark-btn">🌙 Ciemny</button>
     <a href="dashboard.html" class="tb" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px">📊 Dashboard</a>
     <button class="tb primary" id="export-btn">&#8595; XLSX</button>
-    <div class="theme-switcher" style="display:flex;align-items:center;gap:8px;padding:8px 20px;background:var(--surface);border-bottom:1px solid var(--border);">
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 20px;background:var(--surface);border-bottom:1px solid var(--border);">
   <span style="font-size:11px;color:var(--text3);">☀️</span>
-  <button class="dark-toggle" onclick="toggleDark()" id="dark-toggle-btn" title="Przełącz motyw"></button>
+  <button onclick="toggleDark()" id="dark-toggle-btn" style="width:36px;height:20px;background:#cbd5e1;border:none;border-radius:20px;cursor:pointer;position:relative;transition:background .3s;flex-shrink:0;">
+    <span id="dark-knob" style="position:absolute;width:14px;height:14px;background:#fff;border-radius:50%;top:3px;left:3px;transition:left .3s;display:block;box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
+  </button>
   <span style="font-size:11px;color:var(--text3);">🌙</span>
 </div>
 <div class="theme-btn" data-theme="dark" title="Neon Dark"></div>
@@ -1663,9 +1665,18 @@ function enforceDemoMode() {
 function toggleDark() {
   let isDark = document.body.classList.toggle('dark');
   localStorage.setItem('spec-dark', isDark ? '1' : '0');
+  updateToggle(isDark);
+}
+function updateToggle(isDark) {
+  let btn = document.getElementById('dark-toggle-btn');
+  let knob = document.getElementById('dark-knob');
+  if (btn) btn.style.background = isDark ? '#1843c8' : '#cbd5e1';
+  if (knob) knob.style.left = isDark ? '19px' : '3px';
 }
 (function() {
-  if (localStorage.getItem('spec-dark') === '1') document.body.classList.add('dark');
+  let isDark = localStorage.getItem('spec-dark') === '1';
+  if (isDark) document.body.classList.add('dark');
+  setTimeout(() => updateToggle(isDark), 0);
 })();
 
 // ── Theme switcher ─────────────────────────────────────────────
