@@ -43,53 +43,12 @@ const CONFIG = {
 /* ── Theme variables ── */
 :root { --theme: 'default'; }
 
-body.theme-dark {
-  --bg: #0f1624; --surface: #161c2d; --surface2: #1e2538;
-  --border: #1e2d45; --border2: #253550;
-  --accent: #00e5ff; --accent2: #00b8d4; --accent-lt: rgba(0,229,255,0.08);
-  --text: #e2e8f0; --text2: #94a3b8; --text3: #475569;
-  --shadow: rgba(0,0,0,0.4);
-  --grp-hdr-from: #0a1628; --grp-hdr-to: #0d2040;
-  --grp-hdr-text: #00e5ff;
-  --topbar-bg: #161c2d; --topbar-border: #1e2d45;
-  --kpi-bg: #1e2538; --kpi-border: #253550;
-  --status-ob-bg: rgba(163,230,53,0.12); --status-ob-text: #a3e635;
-  --status-url-bg: rgba(56,189,248,0.12); --status-url-text: #38bdf8;
-  --status-uz-bg: rgba(248,113,113,0.12); --status-uz-text: #f87171;
-  --status-nn-bg: rgba(251,191,36,0.12); --status-nn-text: #fbbf24;
-  --status-l4-bg: rgba(248,113,113,0.12); --status-l4-text: #f87171;
-  --status-op-bg: rgba(167,139,250,0.12); --status-op-text: #a78bfa;
-  --hours-color: #00e5ff;
-}
 
 
 
 
 
 /* ── Theme-aware overrides ── */
-body.theme-dark .topbar { background: var(--topbar-bg); border-color: var(--topbar-border); box-shadow: 0 2px 12px var(--shadow); }
-body.theme-dark .topbar h1::before { background: linear-gradient(135deg, #00e5ff, #818cf8); }
-body.theme-dark .month-label { background: rgba(0,229,255,0.08); border-color: rgba(0,229,255,0.2); color: #00e5ff; }
-body.theme-dark .month-nav button { background: rgba(0,229,255,0.05); border-color: rgba(0,229,255,0.15); color: #00e5ff; }
-body.theme-dark button.tb { background: rgba(255,255,255,0.04); border-color: var(--border); color: var(--text2); }
-body.theme-dark button.tb:hover { background: var(--accent-lt); border-color: rgba(0,229,255,0.3); color: var(--accent); }
-body.theme-dark button.tb.primary { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 700; }
-body.theme-dark .table-wrap { border-color: var(--border); }
-body.theme-dark thead th { background: #1a2235; color: #475569; border-color: var(--border); }
-body.theme-dark thead th:nth-child(1), body.theme-dark thead th:nth-child(2) { background: #1a2235; }
-body.theme-dark thead th.col-we { background: #161f30 !important; }
-body.theme-dark thead th.col-hol { background: #1e1520 !important; color: #f87171; }
-body.theme-dark td.col-we { background: #131a28 !important; }
-body.theme-dark td.col-hol { background: #1a1020 !important; }
-body.theme-dark tbody td { border-color: var(--border); }
-body.theme-dark tbody td:nth-child(1), body.theme-dark tbody td:nth-child(2) { background: var(--surface); }
-body.theme-dark tbody tr:hover td { background: rgba(0,229,255,0.04) !important; }
-body.theme-dark tr.group-header td { background: linear-gradient(90deg, var(--grp-hdr-from), var(--grp-hdr-to)) !important; color: var(--grp-hdr-text) !important; border-color: #0a1628; }
-body.theme-dark tr.group-header td:nth-child(1), body.theme-dark tr.group-header td:nth-child(2) { background: var(--grp-hdr-from) !important; }
-body.theme-dark #group-panel { background: var(--surface); border-color: var(--border); }
-body.theme-dark .group-chip { background: var(--surface2); border-color: var(--border); }
-body.theme-dark .auth-card { background: var(--surface); }
-body.theme-dark #auth-screen { background: linear-gradient(145deg, #0a1220, #0f1624, #0d1e30); }
 
 
 
@@ -120,30 +79,9 @@ body.theme-dark #auth-screen { background: linear-gradient(145deg, #0a1220, #0f1
 
 
 
-body.theme-dark {
-  --g0-bg: rgba(58,111,196,0.12); --g1-bg: rgba(16,185,129,0.1);
-  --g2-bg: rgba(139,92,246,0.1); --g3-bg: rgba(251,191,36,0.1);
-  --g4-bg: rgba(6,182,212,0.1); --g5-bg: rgba(248,113,113,0.1);
-  --g6-bg: rgba(52,211,153,0.1); --g7-bg: rgba(163,230,53,0.08);
-}
 
 
 
-body.theme-dark input.hours-inp { color: var(--text); }
-body.theme-dark input.hours-inp:focus { background: rgba(255,255,255,0.08); border-color: var(--accent); }
-body.theme-dark select.ss { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2394a3b8'/%3E%3C/svg%3E"); }
-body.theme-dark select.grp-sel { color: var(--text3); }
-body.theme-dark .name-input { color: var(--text); }
-body.theme-dark .del-btn { color: var(--text3); }
-body.theme-dark .del-btn:hover { color: #f87171; background: rgba(248,113,113,0.1); }
-body.theme-dark .save-dot { background: #2d3748; }
-body.theme-dark .save-dot.saving { background: #fbbf24; }
-body.theme-dark .save-dot.saved { background: #34d399; }
-body.theme-dark .toast { background: #1e2538; border: 1px solid #2d3a55; }
-body.theme-dark #group-panel h3 { color: var(--text); }
-body.theme-dark .group-chip input { color: var(--text); }
-body.theme-dark .user-info { background: rgba(255,255,255,0.06); border-color: var(--border); }
-body.theme-dark td[data-sumrow] { color: #00e5ff !important; }
 
 
 
@@ -158,11 +96,7 @@ select.ss.nn     { color: var(--status-nn-text, #5a4a00); }
 select.ss.l4     { color: var(--status-l4-text, #8b1a1a); }
 select.ss.opieka { color: var(--status-op-text, #5a3580); }
 
-/* Theme switcher */
-.theme-switcher { display: flex; align-items: center; gap: 6px; }
-.theme-switcher-label { font-size: 10px; color: var(--text3); font-weight: 500; }
 
-/* Hours color override */
 td[data-sumrow] { color: var(--hours-color, var(--accent)) !important; }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -455,45 +389,11 @@ body.dark #auth-screen { background: radial-gradient(ellipse at 30% 50%, rgba(24
 body.dark .theme-switcher { background: #1e2637 !important; border-color: rgba(255,255,255,.07) !important; }
 body.dark .secp-footer { border-color: rgba(255,255,255,.07) !important; }
 
-/* ══ DARK MODE ══ */
 
-body.dark-mode .topbar { background:var(--surface) !important; border-color:var(--border) !important; box-shadow:0 1px 20px rgba(0,0,0,.4) !important; }
-body.dark-mode .topbar h1 { color:var(--text) !important; }
-body.dark-mode button.tb { background:var(--surface2) !important; border-color:var(--border2) !important; color:var(--text2) !important; }
-body.dark-mode button.tb:hover { border-color:#0ea5e9 !important; color:#0ea5e9 !important; }
-body.dark-mode button.tb.primary { background:linear-gradient(135deg,#1843c8,#0ea5e9) !important; border:none !important; color:#fff !important; }
-body.dark-mode .month-label { background:var(--surface2) !important; border-color:var(--border2) !important; color:var(--text) !important; }
-body.dark-mode .month-nav button { background:var(--surface2) !important; border-color:var(--border2) !important; color:var(--text2) !important; }
-body.dark-mode .table-wrap { border-color:var(--border) !important; }
-body.dark-mode thead th { background:var(--surface2) !important; color:var(--text3) !important; border-color:var(--border2) !important; }
-body.dark-mode tbody td { border-color:var(--border) !important; color:var(--text2) !important; }
-body.dark-mode tbody td:nth-child(1),body.dark-mode tbody td:nth-child(2) { background:var(--surface) !important; }
-body.dark-mode tbody tr:hover td { background:var(--surface2) !important; }
-body.dark-mode tr.group-header td { background:var(--surface2) !important; color:var(--text3) !important; }
-body.dark-mode tr.group-header td:nth-child(1),body.dark-mode tr.group-header td:nth-child(2) { background:var(--surface3) !important; }
-body.dark-mode td.col-we { background:var(--surface3) !important; }
-body.dark-mode td.extra-col { background:rgba(24,67,200,.08) !important; }
-body.dark-mode td.extra-col-sum { background:rgba(14,165,233,.1) !important; color:#38bdf8 !important; }
-body.dark-mode .name-input { color:var(--text) !important; }
-body.dark-mode .hours-inp { background:var(--surface2) !important; border-color:var(--border2) !important; color:#38bdf8 !important; }
-body.dark-mode .grp-sel { background:var(--surface2) !important; color:var(--text3) !important; }
-body.dark-mode #group-panel { background:var(--surface) !important; border-color:var(--border2) !important; }
-body.dark-mode #group-panel input { background:var(--surface2) !important; border-color:var(--border2) !important; color:var(--text) !important; }
-body.dark-mode .user-info { background:var(--surface2) !important; border-color:var(--border) !important; color:var(--text3) !important; }
-body.dark-mode #auth-screen { background:radial-gradient(ellipse at 30% 50%,rgba(24,67,200,.12) 0%,transparent 60%) !important; }
-body.dark-mode #auth-screen > div { background:var(--surface) !important; border:1px solid var(--border2) !important; border-radius:16px !important; }
-body.dark-mode .login-email,body.dark-mode .login-pass { background:var(--surface2) !important; border-color:var(--border2) !important; color:var(--text) !important; }
-body.dark-mode ::-webkit-scrollbar-track { background:var(--surface); }
-body.dark-mode ::-webkit-scrollbar-thumb { background:var(--border2); }
 
-/* Dark mode toggle button */
-.dark-toggle:hover { border-color: #0ea5e9; }
 
 
 /* ── Dark toggle ── */
-body.dark body.dark 
-/* ── Dark toggle ── */
-.dark-toggle-wrap { display:flex; align-items:center; gap:6px; }
 #dark-toggle-btn {
   width:36px; height:20px; background:#cbd5e1;
   border:none; border-radius:20px; cursor:pointer;
@@ -555,17 +455,15 @@ body.dark #dark-toggle-btn::after { left:19px; }
     <button class="tb" id="add-employee">+ Pracownik</button>
     <button class="tb" id="import-btn">&#8679; Import</button>
     <input type="file" id="import-file" accept=".xlsx,.csv" style="display:none" />
-    <button class="dark-toggle" onclick="toggleDark()" id="dark-btn">🌙 Ciemny</button>
     <a href="dashboard.html" class="tb" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px">📊 Dashboard</a>
     <button class="tb primary" id="export-btn">&#8595; XLSX</button>
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 20px;background:var(--surface);border-bottom:1px solid var(--border);">
-  <span style="font-size:11px;color:var(--text3);">☀️</span>
-  <button onclick="toggleDark()" id="dark-toggle-btn" style="width:36px;height:20px;background:#cbd5e1;border:none;border-radius:20px;cursor:pointer;position:relative;transition:background .3s;flex-shrink:0;">
-    <span id="dark-knob" style="position:absolute;width:14px;height:14px;background:#fff;border-radius:50%;top:3px;left:3px;transition:left .3s;display:block;box-shadow:0 1px 3px rgba(0,0,0,.2);"></span>
-  </button>
-  <span style="font-size:11px;color:var(--text3);">🌙</span>
-</div>
-    
+    <div class="dark-toggle-wrap" id="dark-toggle-wrap">
+      <span class="toggle-icon">☀️</span>
+      <button id="dark-toggle-btn" class="toggle-track" onclick="toggleDark()" title="Jasny / Ciemny">
+        <span id="dark-knob" class="toggle-knob"></span>
+      </button>
+      <span class="toggle-icon">🌙</span>
+    </div>
     <button class="tb" id="logout-btn">Wyloguj</button>
   </div>
 
@@ -1520,45 +1418,26 @@ function enforceDemoMode() {
 function toggleDark() {
   let isDark = document.body.classList.toggle('dark');
   localStorage.setItem('spec-dark', isDark ? '1' : '0');
-  updateToggle(isDark);
+  updateDarkToggleUI(isDark);
 }
-function updateToggle(isDark) {
+function updateDarkToggleUI(isDark) {
   let btn = document.getElementById('dark-toggle-btn');
   let knob = document.getElementById('dark-knob');
-  if (btn) btn.style.background = isDark ? '#1843c8' : '#cbd5e1';
-  if (knob) knob.style.left = isDark ? '19px' : '3px';
+  if (btn) btn.classList.toggle('active', isDark);
+  if (knob) knob.style.left = isDark ? '18px' : '3px';
 }
 (function() {
   let isDark = localStorage.getItem('spec-dark') === '1';
   if (isDark) document.body.classList.add('dark');
-  setTimeout(() => updateToggle(isDark), 0);
+  setTimeout(() => updateDarkToggleUI(isDark), 0);
 })();
 
-// ── Theme switcher ─────────────────────────────────────────────
-const THEMES = ['default','dark'];
-function applyTheme(theme) {
-  THEMES.forEach(t => document.body.classList.remove('theme-' + t));
-  if (theme !== 'default') document.body.classList.add('theme-' + theme);
-  document.querySelectorAll('.theme-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.theme === theme);
-  });
-  localStorage.setItem('att-theme', theme);
-}
-document.addEventListener('click', e => {
-  if (e.target.classList.contains('theme-btn')) {
-    applyTheme(e.target.dataset.theme);
-  }
-});
-// Restore saved theme
-(function() {
-  let saved = localStorage.getItem('att-theme') || 'default';
-  applyTheme(saved);
-})();
-
-// Re-apply theme after app loads (fixes theme not applying after login)
+// ── Theme: tylko dark / light ─────────────────────────────────
 function reapplyTheme() {
-  let saved = localStorage.getItem('att-theme') || 'default';
-  applyTheme(saved);
+  // Synchronizuje suwak po zalogowaniu
+  let isDark = localStorage.getItem('spec-dark') === '1';
+  if (isDark) document.body.classList.add('dark');
+  updateDarkToggleUI(isDark);
 }
 
 // ── Auto-login from session ────────────────────────────────────
