@@ -641,9 +641,11 @@ body.dark-mode ::-webkit-scrollbar-thumb { background:var(--border2); }
     <a href="dashboard.html" class="tb" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px">📊 Dashboard</a>
     <button class="tb primary" id="export-btn">&#8595; XLSX</button>
     <div class="theme-switcher">
-      <span class="theme-switcher-label">Motyw:</span>
-      <div class="theme-btn active" data-theme="default" title="Domyślny"></div>
-      <div class="theme-btn" data-theme="dark" title="Neon Dark"></div>
+  <span class="theme-lbl">Motyw:</span>
+  <button class="theme-btn active" data-theme="default" style="background:#eef1f6;border-color:#1843c8;" title="Jasny"></button>
+  <button class="theme-btn" data-theme="dark" style="background:#0a0c10;" title="Ciemny"></button>
+</div>
+<div class="theme-btn" data-theme="dark" title="Neon Dark"></div>
       <div class="theme-btn" data-theme="brutalist" title="Brutalist"></div>
       <div class="theme-btn" data-theme="aurora" title="Aurora"></div>
       <div class="theme-btn" data-theme="coral" title="Coral Sunrise"></div>
@@ -707,7 +709,14 @@ function initMsal() {
   });
 }
 document.getElementById('login-btn').addEventListener('click', () => msalInstance && msalInstance.loginRedirect({ scopes: SCOPES }));
-document.getElementById('logout-btn').addEventListener('click', () => msalInstance.logoutPopup().then(() => location.reload()));
+document.getElementById('logout-btn').addEventListener('click', () => {
+  // Clear local session
+  localStorage.removeItem('att-session');
+  sessionStorage.clear();
+  // Also logout MSAL if active
+  try { msalInstance.logoutPopup().catch(() => {}); } catch(e) {}
+  setTimeout(() => location.reload(), 300);
+});
 
 async function getToken() {
   try { return (await msalInstance.acquireTokenSilent({ scopes: SCOPES, account })).accessToken; }
@@ -1611,7 +1620,7 @@ function toggleDark() {
 })();
 
 // ── Theme switcher ─────────────────────────────────────────────
-const THEMES = ['default','dark','brutalist','aurora','coral','aqua','candy'];
+const THEMES = ['default','dark'];
 function applyTheme(theme) {
   THEMES.forEach(t => document.body.classList.remove('theme-' + t));
   if (theme !== 'default') document.body.classList.add('theme-' + theme);

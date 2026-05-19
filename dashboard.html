@@ -435,8 +435,15 @@ function initMsal() {
   });
 }
 document.getElementById('login-btn').addEventListener('click', () => msalInstance && msalInstance.loginRedirect({ scopes:SCOPES }));
-document.getElementById('logout-btn').addEventListener('click', () => msalInstance.logoutPopup().then(()=>location.reload()));
-document.getElementById('refresh-btn').addEventListener('click', () => loadData());
+let logoutBtn = document.getElementById('logout-btn');
+let refreshBtn = document.getElementById('refresh-btn');
+if (logoutBtn) logoutBtn.addEventListener('click', () => {
+  localStorage.removeItem('att-session');
+  sessionStorage.clear();
+  try { msalInstance.logoutPopup().catch(() => {}); } catch(e) {}
+  setTimeout(() => location.reload(), 300);
+});
+if (refreshBtn) refreshBtn.addEventListener('click', () => loadData());
 
 async function getToken() {
   try { return (await msalInstance.acquireTokenSilent({scopes:SCOPES,account})).accessToken; }
