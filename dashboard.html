@@ -7,6 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.7.1/lib/msal-browser.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
 :root {
   --bg: #eef1f6; --surface: #fff; --surface2: #f4f6fa;
@@ -903,5 +904,23 @@ document.addEventListener('click', e => {
 <div style="text-align:center;padding:16px;font-size:11px;color:var(--text3,#9ca3af);border-top:1px solid var(--border,#e5e7eb);margin-top:auto;">
   Powered by <strong style="color:var(--accent,#1a56db)">SPEC</strong> · KSM-Group · Autor: Michał Kucia
 </div>
+
+<style>
+body.dark{background:#0a0c10;color:#f1f5f9;}
+body.dark .topbar{background:#111318!important;border-color:rgba(255,255,255,.07)!important;}
+body.dark .card{background:#111318!important;border-color:rgba(255,255,255,.07)!important;}
+body.dark button.tb{background:#1a1e28!important;border-color:rgba(255,255,255,.13)!important;color:#94a3b8!important;}
+body.dark .dark-toggle{background:#1843c8!important;border-color:#1843c8!important;}
+body.dark .dark-toggle::after{left:18px!important;background:#fff!important;}
+.dark-toggle::after{content:'';position:absolute;width:14px;height:14px;background:#9ca3af;border-radius:50%;top:2px;left:2px;transition:all .3s;}
+</style>
+<script>
+function toggleDark(){
+  let d = document.body.classList.toggle('dark');
+  localStorage.setItem('spec-dark', d?'1':'0');
+}
+if(localStorage.getItem('spec-dark')==='1') document.body.classList.add('dark');
+</script>
+
 </body>
 </html>
