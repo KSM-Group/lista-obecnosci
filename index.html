@@ -323,6 +323,24 @@ select.ss.opieka  { color: #5a3580; font-weight: 600; font-size: 9px; }
 .group-chip .chip-del:hover { color: #a4262c; }
 .group-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.1); }
 /* ── Extra columns ── */
+thead th.col-ot {
+  min-width:72px; white-space:normal;
+  background:linear-gradient(180deg,#dce6f5,#cfd9ee) !important;
+  color:var(--accent2);
+}
+thead th.col-sum {
+  min-width:72px; white-space:normal;
+  background:linear-gradient(180deg,#d5eadf,#c5ddd0) !important;
+  color:#1a5a2a;
+}
+body.dark thead th.col-ot {
+  background:linear-gradient(180deg,#1e2d4a,#1a2840) !important;
+  color:#4d8ef0 !important;
+}
+body.dark thead th.col-sum {
+  background:linear-gradient(180deg,#1a2d24,#162520) !important;
+  color:#34d399 !important;
+}
 td.extra-col { background: var(--surface2) !important; }
 td.extra-col-sum { background: var(--surface2) !important; font-weight: 700; color: var(--hours-color, #1a5a2a); }
 input.hours-inp {
@@ -331,7 +349,9 @@ input.hours-inp {
   color: var(--text); font-weight: 600;
 }
 input.hours-inp:focus { background: rgba(255,255,255,0.9); border: 1px solid var(--accent); }
-input.hours-inp::-webkit-inner-spin-button { opacity: 1; }
+input.hours-inp::-webkit-inner-spin-button,
+input.hours-inp::-webkit-outer-spin-button { -webkit-appearance:none; appearance:none; margin:0; }
+input.hours-inp { -moz-appearance:textfield; }
 /* Partial day correction */
 td.partial-day { background: rgba(230,160,23,0.12) !important; }
 .partial-overlay {
@@ -917,7 +937,7 @@ function renderTable() {
   document.getElementById('month-label').textContent = PL_MONTHS[viewMonth] + ' ' + viewYear;
 
   let hRow = document.getElementById('header-row');
-  hRow.innerHTML = '<th style="width:36px">#</th><th>Pracownik</th><th style="min-width:72px;background:linear-gradient(180deg,#d5e8f5,#c5daea);white-space:normal">Nadgodziny<br><span style="font-weight:400">50%</span></th><th style="min-width:72px;background:linear-gradient(180deg,#d5e8f5,#c5daea);white-space:normal">Nadgodziny<br><span style="font-weight:400">100%</span></th><th style="min-width:72px;background:linear-gradient(180deg,#cde8d5,#bbe0c8);color:#1a5a2a;white-space:normal">Godziny<br><span style="font-weight:400">Razem</span></th>';
+  hRow.innerHTML = '<th style="width:36px">#</th><th>Pracownik</th><th class="col-ot">Nadgodziny<br><span style="font-weight:400">50%</span></th><th class="col-ot">Nadgodziny<br><span style="font-weight:400">100%</span></th><th class="col-sum">Godziny<br><span style="font-weight:400">Razem</span></th>';
   for (let d = 1; d <= days; d++) {
     let dow = new Date(viewYear, viewMonth, d).getDay();
     let cls = getDayClass(viewYear, viewMonth, d);
