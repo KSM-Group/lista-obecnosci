@@ -5,22 +5,47 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SPEC</title>
 <script>
+// ══ SUPABASE CONFIG ══════════════════════════════════════════════
+const SB_URL  = 'https://rccxsogpkqiunyooqaeg.supabase.co';
+const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjY3hzb2dwa3FpdW55b29xYWVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNTM2MDQsImV4cCI6MjA5NDkyOTYwNH0.LPhObNlNNI3K26oIKrOi1tmVcQxKkWxCy4GEVB5yv6U';
+const SB_HDR  = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
+
+let SPEC_CLIENT_ID = '';
+
+async function sbGetClientLogins(clientId) {
+  let r = await fetch(SB_URL + '/rest/v1/client_logins?client_id=eq.' + clientId + '&select=email,password_hash', { headers: SB_HDR });
+  return await r.json();
+}
+
+async function sbLoadData(clientId) {
+  let r = await fetch(SB_URL + '/rest/v1/client_data?client_id=eq.' + clientId + '&select=data', { headers: SB_HDR });
+  let rows = await r.json();
+  return (rows && rows.length) ? rows[0].data : null;
+}
+
+async function sbSaveData(clientId, data) {
+  // Upsert
+  let r = await fetch(SB_URL + '/rest/v1/client_data?client_id=eq.' + clientId, {
+    method: 'PATCH',
+    headers: { ...SB_HDR, 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ data, updated_at: new Date().toISOString() })
+  });
+  if (!r.ok) {
+    // Jeśli nie istnieje - INSERT
+    await fetch(SB_URL + '/rest/v1/client_data', {
+      method: 'POST',
+      headers: { ...SB_HDR, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ client_id: clientId, data })
+    });
+  }
+}
+
+// Stary CONFIG dla kompatybilności
 const CONFIG = {
-  clientId: "TWOJ_CLIENT_ID",
-  tenantId: "TWOJ_TENANT_ID",
-  sharePointSite: "https://TWOJAFIRMA.sharepoint.com",
-  listName: "ListaObecnosci",
-  redirectUri: "https://ksm-group.github.io/lista-obecnosci/",
-  // Dodatkowy login omijający Azure
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycbwydWACfM8KWufP4jQXz7aG27Ffn7mEOKYg39EYbzz0rkvwHPGO3PTT9XFxONfMKuS6/exec",
-  extraLogins: [
-    { email: "kucia.michal@gmail.com", password: "USTAW_HASLO_TUTAJ" },
-    { email: "test@test.pl", password: "test" }
-  ]
+  extraLogins: [],
 };
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.7.1/lib/msal-browser.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
 /* ── Paleta niebiesko-szara ── */
@@ -632,27 +657,13 @@ let extraData = {}; // { 'empName||y_m': { ot50, ot100 } }
 let spItemIds = {};
 let saveTimer = null;
 
-// ── MSAL ──────────────────────────────────────────────────────
-function initMsal() {
-  msalInstance = new msal.PublicClientApplication({
-    auth: { clientId: CONFIG.clientId, authority: 'https://login.microsoftonline.com/' + CONFIG.tenantId, redirectUri: CONFIG.redirectUri },
-    cache: { cacheLocation: 'sessionStorage' }
-  });
-  msalInstance.initialize().then(() => {
-    msalInstance.handleRedirectPromise().then(resp => {
-      if (resp) account = resp.account;
-      else { let a = msalInstance.getAllAccounts(); if (a.length) account = a[0]; }
-      if (account) startApp();
-    }).catch(e => showAuthError(e));
-  });
-}
-document.getElementById('login-btn').addEventListener('click', () => msalInstance && msalInstance.loginRedirect({ scopes: SCOPES }));
+// ── Microsoft login - nieaktywny (używamy Supabase) ─────────────
+document.getElementById('login-btn').addEventListener('click', () => {
+  alert('Logowanie przez Microsoft 365 wymaga konfiguracji Azure AD.');
+});
 document.getElementById('logout-btn').addEventListener('click', () => {
-  // Clear local session
   localStorage.removeItem('att-session');
   sessionStorage.clear();
-  // Also logout MSAL if active
-  try { msalInstance.logoutPopup().catch(() => {}); } catch(e) {}
   setTimeout(() => location.reload(), 300);
 });
 
@@ -1369,22 +1380,20 @@ document.getElementById('local-password').addEventListener('keydown', function(e
   if (e.key === 'Enter') document.getElementById('local-login-btn').click();
 });
 
-// ── Local data storage (when not using Azure) ──────────────────
+// ── Data storage (Supabase) ──────────────────────────────────────
 async function loadLocalData() {
   showLoading('Ładowanie danych...');
   try {
-    let resp = await fetch(CONFIG.appsScriptUrl);
-    let raw = await resp.text();
-    if (raw && raw !== '{}') {
-      let data = JSON.parse(raw);
-      employees = data.employees || [];
-      groups = data.groups || [];
-      monthStatuses = data.monthStatuses || {};
-      extraData = data.extraData || {};
+    let clientId = SPEC_CLIENT_ID || localStorage.getItem('secp-client-id') || 'default';
+    let data = await sbLoadData(clientId);
+    if (data) {
+      employees    = data.employees    || [];
+      groups       = data.groups       || [];
+      monthStatuses= data.monthStatuses|| {};
+      extraData    = data.extraData    || {};
     }
   } catch(e) {
     console.error('Load error:', e);
-    // Fallback to localStorage
     try {
       let raw = localStorage.getItem('att-employees');
       if (raw) { let p = JSON.parse(raw); employees = p.employees||[]; groups = p.groups||[]; }
@@ -1401,19 +1410,14 @@ async function loadLocalData() {
 
 async function saveLocalData() {
   if (isDemoUser()) { console.log('Demo mode - save blocked'); return; }
-  let data = JSON.stringify({ employees, groups, monthStatuses, extraData });
-  // Save to localStorage as backup
   try {
     localStorage.setItem('att-employees', JSON.stringify({ employees, groups }));
     localStorage.setItem('att-statuses', JSON.stringify(monthStatuses));
     localStorage.setItem('att-extra', JSON.stringify(extraData));
   } catch(e) {}
-  // Save to Google Sheets
   try {
-    await fetch(CONFIG.appsScriptUrl, {
-      method: 'POST',
-      body: data
-    });
+    let clientId = SPEC_CLIENT_ID || localStorage.getItem('secp-client-id') || 'default';
+    await sbSaveData(clientId, { employees, groups, monthStatuses, extraData });
   } catch(e) { console.error('Save error:', e); }
 }
 
@@ -1422,9 +1426,9 @@ async function saveLocalData() {
 // Reads QR attendance events from Google Sheets and auto-fills statuses
 async function syncQRAttendance() {
   try {
-    let resp = await fetch(CONFIG.appsScriptUrl);
-    let raw = await resp.text();
-    let data = JSON.parse(raw);
+    let clientId = SPEC_CLIENT_ID || localStorage.getItem('secp-client-id') || 'default';
+    let data = await sbLoadData(clientId);
+    if (!data) return;
     let attendance = data.attendance || [];
     let today = new Date().toISOString().slice(0,10);
     let y = new Date().getFullYear();
@@ -1485,31 +1489,20 @@ setInterval(syncQRAttendance, 120000);
 
 
 
-// ── Multi-client support ────────────────────────────────────────
+// ── Multi-client support (Supabase) ─────────────────────────────
 async function loadClientConfig() {
   let params = new URLSearchParams(window.location.search);
-  let clientId = params.get('client');
-  if (!clientId) return; // Use default config
-
-  // Load client config from master Google Sheet
+  let clientId = params.get('client') || localStorage.getItem('secp-client-id') || '';
+  if (!clientId) return;
+  SPEC_CLIENT_ID = clientId;
+  localStorage.setItem('secp-client-id', clientId);
   try {
-    let resp = await fetch(CONFIG.appsScriptUrl + '?action=getClient&id=' + clientId);
-    let raw = await resp.text();
-    let data = JSON.parse(raw);
-    if (data.client) {
-      let cl = data.client;
-      // Override config with client-specific values
-      if (cl.script) CONFIG.appsScriptUrl = cl.script;
-      if (cl.pass) CONFIG.extraLogins = CONFIG.extraLogins.map(u =>
-        u.email === cl.loginEmail ? {...u, password: cl.pass} : u
-      ).concat([{ email: cl.loginEmail || cl.email, password: cl.pass }]);
-      // Store client branding
-      localStorage.setItem('secp-client-id', clientId);
-      localStorage.setItem('secp-client-name', cl.name || 'SPEC');
+    let logins = await sbGetClientLogins(clientId);
+    if (logins && logins.length) {
+      CONFIG.extraLogins = logins.map(l => ({ email: l.email, password: l.password_hash }));
     }
   } catch(e) {
-    // Fallback - use default config
-    console.log('Client config load failed, using default');
+    console.log('Client config load failed:', e);
   }
 }
 
@@ -1565,15 +1558,17 @@ function reapplyTheme() {
   updateDarkUI(isDark);
 }
 
-// ── Auto-login from session ────────────────────────────────────
-(function() {
+// ── Init: najpierw config klienta, potem auto-login ─────────────
+(async function() {
+  await loadClientConfig();
   let saved = localStorage.getItem('att-session');
   if (saved) {
     try {
       let sess = JSON.parse(saved);
       if (sess.email) {
         let validUser = (CONFIG.extraLogins || []).find(u => u.email === sess.email);
-        if (validUser) {
+        let hasClient = SPEC_CLIENT_ID || localStorage.getItem('secp-client-id');
+        if (validUser || hasClient) {
           document.getElementById('auth-screen').style.display = 'none';
           document.getElementById('app').style.display = 'block';
           document.getElementById('user-info').textContent = sess.email;
@@ -1584,7 +1579,7 @@ function reapplyTheme() {
       }
     } catch(e) {}
   }
-  initMsal();
+  // Pokaż ekran logowania
 })();
 </script>
 
