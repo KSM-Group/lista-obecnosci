@@ -233,14 +233,14 @@ body.dark .toast{background:#2d3a55;border:1px solid var(--border2);}
 <div class="toast" id="toast"></div>
 
 <script>
-// ══ CONFIG ══════════════════════════════════════════════════════
-const CONFIG = {
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycbwydWACfM8KWufP4jQXz7aG27Ffn7mEOKYg39EYbzz0rkvwHPGO3PTT9XFxONfMKuS6/exec",
-  extraLogins: [
-    { email: "kucia.michal@gmail.com", password: "USTAW_HASLO_TUTAJ" },
-    { email: "test@test.pl", password: "test" }
-  ]
-};
+// ══ SUPABASE ════════════════════════════════════════════════════
+const SB_URL='https://rccxsogpkqiunyooqaeg.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjY3hzb2dwa3FpdW55b29xYWVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNTM2MDQsImV4cCI6MjA5NDkyOTYwNH0.LPhObNlNNI3K26oIKrOi1tmVcQxKkWxCy4GEVB5yv6U';
+const SB_HDR={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+let DASH_CLIENT_ID='';
+async function sbFindLogin(email){let r=await fetch(SB_URL+'/rest/v1/client_logins?email=eq.'+encodeURIComponent(email)+'&select=client_id,password_hash',{headers:SB_HDR});let rows=await r.json();return(rows&&rows.length)?rows[0]:null;}
+async function sbLoadDashData(clientId){let r=await fetch(SB_URL+'/rest/v1/client_data?client_id=eq.'+clientId+'&select=data',{headers:SB_HDR});let rows=await r.json();return(rows&&rows.length)?rows[0].data:null;}
+const CONFIG={extraLogins:[]};
 
 const SPECIAL_ROLES = {
   'Dorota Lesińska':      {role:'Kierownik',shift:'1 zmiana',cls:'role-kierownik'},
@@ -284,17 +284,23 @@ document.getElementById('login-btn').addEventListener('click',()=>showToast('Mic
 document.getElementById('logout-btn').addEventListener('click',()=>{localStorage.removeItem('att-session');location.reload();});
 document.getElementById('refresh-btn').addEventListener('click',()=>loadLocalDashData());
 
-function doLogin(){
+async function doLogin(){
   let email=document.getElementById('local-email').value.trim();
   let pass=document.getElementById('local-password').value;
   let err=document.getElementById('local-error');
+  let btn=document.getElementById('local-login-btn');
   err.style.display='none';
   if(!email||!pass){err.textContent='Wpisz e-mail i hasło.';err.style.display='block';return;}
-  let valid=CONFIG.extraLogins.find(u=>u.email===email&&u.password===pass);
-  if(!valid){err.textContent='Nieprawidłowy e-mail lub hasło.';err.style.display='block';return;}
-  localStorage.setItem('att-session',JSON.stringify({email}));
-  showApp(email);
-  loadLocalDashData();
+  btn.textContent='Logowanie...';btn.disabled=true;
+  try{
+    let row=await sbFindLogin(email);
+    if(!row||row.password_hash!==pass){err.textContent='Nieprawidłowy e-mail lub hasło.';err.style.display='block';btn.textContent='Zaloguj się';btn.disabled=false;return;}
+    DASH_CLIENT_ID=row.client_id;
+    localStorage.setItem('att-session',JSON.stringify({email,clientId:row.client_id}));
+    localStorage.setItem('secp-client-id',row.client_id);
+    btn.textContent='Zaloguj się';btn.disabled=false;
+    showApp(email);loadLocalDashData();
+  }catch(e){err.textContent='Błąd połączenia.';err.style.display='block';btn.textContent='Zaloguj się';btn.disabled=false;}
 }
 function showApp(email){
   document.getElementById('auth-screen').style.display='none';
@@ -309,23 +315,21 @@ function showApp(email){
   if(saved){
     try{
       let sess=JSON.parse(saved);
-      let valid=CONFIG.extraLogins.find(u=>u.email===sess.email);
-      if(valid){showApp(sess.email);loadLocalDashData();return;}
+      if(sess.email){
+        DASH_CLIENT_ID=sess.clientId||localStorage.getItem('secp-client-id')||localStorage.getItem('secp-admin-client')||'';
+        showApp(sess.email);loadLocalDashData();return;
+      }
     }catch(e){}
   }
 })();
 
-// ══ DANE ═════════════════════════════════════════════════════════
+// ══ DANE (Supabase) ══════════════════════════════════════════════
 async function loadLocalDashData(){
   showLoading('Ładowanie danych...');
   try{
-    let resp=await fetch(CONFIG.appsScriptUrl);
-    let raw=await resp.text();
-    if(raw&&raw!=='{}'){
-      let data=JSON.parse(raw);
-      employees=data.employees||[];groups=data.groups||[];
-      monthStatuses=data.monthStatuses||{};extraData=data.extraData||{};
-    }
+    let clientId=DASH_CLIENT_ID||localStorage.getItem('secp-client-id')||localStorage.getItem('secp-admin-client')||'default';
+    let data=await sbLoadDashData(clientId);
+    if(data){employees=data.employees||[];groups=data.groups||[];monthStatuses=data.monthStatuses||{};extraData=data.extraData||{};}
   }catch(e){
     try{
       let raw=localStorage.getItem('att-employees');
