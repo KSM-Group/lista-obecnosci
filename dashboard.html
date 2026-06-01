@@ -272,9 +272,39 @@ function updateDarkUI(d){
   if(knob) knob.style.left=d?'21px':'3px';
 }
 (function(){
-  let d=localStorage.getItem('spec-dark')==='1';
-  if(d) document.body.classList.add('dark');
-  setTimeout(()=>updateDarkUI(d),0);
+  (function(){
+  let urlParams = new URLSearchParams(window.location.search);
+  let clientParam = urlParams.get('client');
+  let autologinEmail = urlParams.get('autologin');
+
+  if (clientParam) {
+    // Jest ?client= - załaduj dane bez logowania
+    DASH_CLIENT_ID = clientParam;
+    localStorage.setItem('secp-client-id', clientParam);
+    document.getElementById('auth-screen').style.display = 'none';
+    let app = document.getElementById('app');
+    app.style.display = 'flex';
+    let email = autologinEmail || '';
+    document.getElementById('user-info').textContent = email;
+    loadLocalDashData();
+    return;
+  }
+
+  // Brak ?client= - sprawdź sesję
+  let saved = localStorage.getItem('att-session');
+  if (saved) {
+    try {
+      let sess = JSON.parse(saved);
+      if (sess.email) {
+        DASH_CLIENT_ID = sess.clientId || localStorage.getItem('secp-admin-client') || '';
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'flex';
+        document.getElementById('user-info').textContent = sess.email;
+        loadLocalDashData();
+        return;
+      }
+    } catch(e) {}
+  }
 })();
 
 // ══ LOGIN ════════════════════════════════════════════════════════

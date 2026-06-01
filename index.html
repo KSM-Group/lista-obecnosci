@@ -1567,36 +1567,25 @@ function reapplyTheme() {
 
 // ── Auto-login ────────────────────────────────────────────────
 (async function() {
-  await loadClientConfig();
-  // Autologin z URL (iframe z spec_admin)
   let urlParams = new URLSearchParams(window.location.search);
+  let clientParam = urlParams.get('client');
   let autologinEmail = urlParams.get('autologin');
-  if (autologinEmail) {
-    localStorage.setItem('att-session', JSON.stringify({ email: autologinEmail }));
+
+  if (clientParam) {
+    // Jest ?client= - załaduj dane bez logowania
+    SPEC_CLIENT_ID = clientParam;
+    localStorage.setItem('secp-client-id', clientParam);
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
-    document.getElementById('user-info').textContent = autologinEmail;
+    let email = autologinEmail || localStorage.getItem('secp-admin-session') && JSON.parse(localStorage.getItem('secp-admin-session')).email || '';
+    document.getElementById('user-info').textContent = email;
     reapplyTheme();
     loadLocalData();
     return;
   }
-  let saved = localStorage.getItem('att-session');
-  if (saved) {
-    try {
-      let sess = JSON.parse(saved);
-      if (sess.email) {
-        let hasClient = SPEC_CLIENT_ID || localStorage.getItem('secp-client-id');
-        if (hasClient) {
-          document.getElementById('auth-screen').style.display = 'none';
-          document.getElementById('app').style.display = 'block';
-          document.getElementById('user-info').textContent = sess.email;
-          reapplyTheme();
-          loadLocalData();
-          return;
-        }
-      }
-    } catch(e) {}
-  }
+
+  // Brak ?client= - pokaż ekran logowania
+  await loadClientConfig();
 })();
 </script>
 
