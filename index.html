@@ -1346,7 +1346,7 @@ document.getElementById('import-file').addEventListener('change', async function
 
 
 // ── Local login (bypasses Azure) ───────────────────────────────
-document.getElementById('local-login-btn').addEventListener('click', function() {
+document.getElementById('local-login-btn').addEventListener('click', async function() {
   let email = document.getElementById('local-email').value.trim();
   let pass  = document.getElementById('local-password').value;
   let err   = document.getElementById('local-error');
