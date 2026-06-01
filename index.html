@@ -5,19 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SPEC</title>
 <script>
-const CONFIG = {
-  clientId: "TWOJ_CLIENT_ID",
-  tenantId: "TWOJ_TENANT_ID",
-  sharePointSite: "https://TWOJAFIRMA.sharepoint.com",
-  listName: "ListaObecnosci",
-  redirectUri: "https://ksm-group.github.io/lista-obecnosci/",
-  // Dodatkowy login omijający Azure
-  appsScriptUrl: "https://script.google.com/macros/s/AKfycbwydWACfM8KWufP4jQXz7aG27Ffn7mEOKYg39EYbzz0rkvwHPGO3PTT9XFxONfMKuS6/exec",
-  extraLogins: [
-    { email: "kucia.michal@gmail.com", password: "USTAW_HASLO_TUTAJ" },
-    { email: "test@test.pl", password: "test" }
-  ]
-};
+// Supabase - patrz SB_URL poniżej
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.7.1/lib/msal-browser.min.js"></script>
@@ -648,8 +636,8 @@ function initMsal() {
     }).catch(e => showAuthError(e));
   });
 }
-document.getElementById('login-btn').addEventListener('click', () => msalInstance && msalInstance.loginRedirect({ scopes: SCOPES }));
-document.getElementById('logout-btn').addEventListener('click', () => {
+let _loginBtn = document.getElementById('login-btn'); if(_loginBtn) _loginBtn.addEventListener('click', () => msalInstance && msalInstance.loginRedirect({ scopes: SCOPES }));
+let _logoutBtn = document.getElementById('logout-btn'); if(_logoutBtn) _logoutBtn.addEventListener('click', () => {
   // Clear local session
   localStorage.removeItem('att-session');
   sessionStorage.clear();
@@ -1413,28 +1401,6 @@ async function saveLocalData() {
 
 
 
-// ── Multi-client support ────────────────────────────────────────
-async function loadClientConfig() {
-  let params = new URLSearchParams(window.location.search);
-  let clientId = params.get('client');
-  if (!clientId) return; // Use default config
-
-  // Load client config from master Google Sheet
-  try {
-    let resp = await fetch(CONFIG.appsScriptUrl + '?action=getClient&id=' + clientId);
-    let raw = await resp.text();
-    let data = JSON.parse(raw);
-    if (data.client) {
-      let cl = data.client;
-      // Override config with client-specific values
-      if (cl.script) CONFIG.appsScriptUrl = cl.script;
-      if (cl.pass) CONFIG.extraLogins = CONFIG.extraLogins.map(u =>
-        u.email === cl.loginEmail ? {...u, password: cl.pass} : u
-      ).concat([{ email: cl.loginEmail || cl.email, password: cl.pass }]);
-      // Store client branding
-      localStorage.setItem('secp-client-id', clientId);
-      localStorage.setItem('secp-client-name', cl.name || 'SPEC');
-    }
   } catch(e) {
     // Fallback - use default config
     console.log('Client config load failed, using default');
