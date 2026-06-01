@@ -4,9 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SPEC</title>
-<script>
-// Supabase - patrz SB_URL poniżej
-</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
@@ -568,10 +565,15 @@ body.dark ::-webkit-scrollbar-thumb:hover { background:#2d3a55; }
     <button class="tb" id="add-employee">+ Pracownik</button>
     <button class="tb" id="import-btn">&#8679; Import</button>
     <input type="file" id="import-file" accept=".xlsx,.csv" style="display:none" />
-    <a href="dashboard.html" class="tb" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px">📊 Dashboard</a>
     <button class="tb primary" id="export-btn">&#8595; XLSX</button>
-
-
+    <div class="dark-toggle-wrap" id="dark-toggle-wrap">
+      <span class="toggle-icon">☀️</span>
+      <button id="dark-toggle-btn" class="toggle-track" onclick="toggleDark()" title="Jasny / Ciemny">
+        <span id="dark-knob" class="toggle-knob"></span>
+      </button>
+      <span class="toggle-icon">🌙</span>
+    </div>
+    <button class="tb" id="logout-btn">Wyloguj</button>
   </div>
 
   <!-- Group manager -->
@@ -592,10 +594,10 @@ body.dark ::-webkit-scrollbar-thumb:hover { background:#2d3a55; }
 <div class="toast" id="toast"></div>
 
 <script>
-const SB_URL = 'https://rccxsogpkqiunyooqaeg.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjY3hzb2dwa3FpdW55b29xYWVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNTM2MDQsImV4cCI6MjA5NDkyOTYwNH0.LPhObNlNNI3K26oIKrOi1tmVcQxKkWxCy4GEVB5yv6U';
-const SB_HDR = {'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
-let SPEC_CLIENT_ID = '';
+const SB_URL='https://rccxsogpkqiunyooqaeg.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjY3hzb2dwa3FpdW55b29xYWVnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNTM2MDQsImV4cCI6MjA5NDkyOTYwNH0.LPhObNlNNI3K26oIKrOi1tmVcQxKkWxCy4GEVB5yv6U';
+const SB_HDR={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'};
+let SPEC_CLIENT_ID='';
 async function sbGet(cId){let r=await fetch(SB_URL+'/rest/v1/client_data?client_id=eq.'+cId+'&select=data',{headers:SB_HDR});let rows=await r.json();return(rows&&rows.length)?rows[0].data:null;}
 async function sbSet(cId,data){let r=await fetch(SB_URL+'/rest/v1/client_data?client_id=eq.'+cId,{method:'PATCH',headers:{...SB_HDR,'Prefer':'return=minimal'},body:JSON.stringify({data,updated_at:new Date().toISOString()})});if(!r.ok){await fetch(SB_URL+'/rest/v1/client_data',{method:'POST',headers:{...SB_HDR,'Prefer':'return=minimal'},body:JSON.stringify({client_id:cId,data})});}}
 async function sbCheckLogin(email,pass){let r=await fetch(SB_URL+'/rest/v1/client_logins?email=eq.'+encodeURIComponent(email)+'&select=client_id,password_hash',{headers:SB_HDR});let rows=await r.json();if(!rows||!rows.length||rows[0].password_hash!==pass)return null;return rows[0].client_id;}
@@ -607,10 +609,6 @@ const S_CLASS   = { 'OBECNY':'obecny','UŻ':'uz','URLOP':'urlop','NN':'nn','Zwol
 const GROUP_COLORS = ['#c8e6c9','#bbdefb','#ffe0b2','#e1bee7','#ffccbc','#b2dfdb','#f8bbd0','#f0f4c3'];
 const GROUP_COLORS_DARK = ['#2e7d32','#1565c0','#e65100','#6a1b9a','#bf360c','#00695c','#880e4f','#827717'];
 
-const GRAPH = 'https://graph.microsoft.com/v1.0';
-const SCOPES = ['User.Read', 'Sites.ReadWrite.All'];
-
-let msalInstance = null, account = null, siteId = null, listId = null;
 let viewYear, viewMonth;
 // employees: array of { name, group }
 let employees = [];
@@ -621,8 +619,10 @@ let extraData = {}; // { 'empName||y_m': { ot50, ot100 } }
 let spItemIds = {};
 let saveTimer = null;
 
-let _loginBtn = document.getElementById('login-btn'); if(_loginBtn) _loginBtn.addEventListener('click', () => msalInstance && msalInstance.loginRedirect({ scopes: SCOPES }));
-let _logoutBtn = document.getElementById('logout-btn'); if(_logoutBtn) _logoutBtn.addEventListener('click', () => {
+
+
+document.getElementById('login-btn').addEventListener('click', () => msalInstance && msalInstance.loginRedirect({ scopes: SCOPES }));
+document.getElementById('logout-btn').addEventListener('click', () => {
   // Clear local session
   localStorage.removeItem('att-session');
   sessionStorage.clear();
@@ -631,99 +631,19 @@ let _logoutBtn = document.getElementById('logout-btn'); if(_logoutBtn) _logoutBt
   setTimeout(() => location.reload(), 300);
 });
 
-  catch { return (await msalInstance.acquireTokenPopup({ scopes: SCOPES })).accessToken; }
-}
 
 // ── Start ──────────────────────────────────────────────────────
 
 // ── SharePoint data ────────────────────────────────────────────
-async function loadFromSharePoint() {
-  showLoading('Ładowanie danych...');
-  let resp = await graphGet('/sites/' + siteId + '/lists/' + listId + '/items?$expand=fields&$top=999');
-  employees = []; groups = []; monthStatuses = {}; spItemIds = {};
 
-  let empItem = resp.value.find(i => i.fields.Title === '__employees__');
-  if (empItem) {
-    try {
-      let raw = empItem.fields.Statusy || '{}';
-      let parsed = JSON.parse(raw);
-      // Backward compat: old format was array of strings
-      if (Array.isArray(parsed)) {
-        employees = parsed.map(n => typeof n === 'string' ? { name: n, group: '' } : n);
-        groups = [];
-      } else {
-        employees = (parsed.employees || []).map(e => typeof e === 'string' ? { name: e, group: '' } : e);
-        groups = parsed.groups || [];
-      }
-    } catch { employees = []; groups = []; }
-    spItemIds['__employees__'] = empItem.id;
-  }
-  if (!employees.length) employees = [];
-  if (!groups.length) groups = [];
 
-  resp.value.filter(i => i.fields.Title !== '__employees__').forEach(item => {
-    let f = item.fields, mk = f.Rok + '_' + f.Miesiac;
-    if (!monthStatuses[mk]) monthStatuses[mk] = {};
-    try {
-      let parsed = JSON.parse(f.Statusy || '{}');
-      let empName = f.Title;
-      // Clear any old keys for this employee before loading
-      Object.keys(monthStatuses[mk]).filter(k => k.startsWith(empName + '||')).forEach(k => delete monthStatuses[mk][k]);
-      if (parsed.statuses) {
-        Object.assign(monthStatuses[mk], parsed.statuses);
-        if (parsed.ot) {
-          extraData[empName + '||' + mk] = parsed.ot;
-        }
-      } else {
-        // Old format — load but only keys belonging to this employee
-        Object.keys(parsed).filter(k => k.startsWith(empName + '||')).forEach(k => {
-          monthStatuses[mk][k] = parsed[k];
-        });
-      }
-    } catch {}
-    spItemIds[mk + '_' + f.Title] = item.id;
-  });
 
-  let now = new Date(); viewYear = now.getFullYear(); viewMonth = now.getMonth();
-  renderTable(); renderGroupPanel();
-  hideLoading();
-  syncQRAttendance();
-  enforceDemoMode();
-  reapplyTheme();
-}
-
-async function saveEmployees() {
-  let body = { fields: { Title: '__employees__', Statusy: JSON.stringify({ employees, groups }), Miesiac: '0', Rok: 0 } };
-  if (spItemIds['__employees__']) await graphPatch('/sites/' + siteId + '/lists/' + listId + '/items/' + spItemIds['__employees__'], body);
-  else { let r = await graphPost('/sites/' + siteId + '/lists/' + listId + '/items', body); spItemIds['__employees__'] = r.id; }
-}
-
-async function saveMonthForEmployee(emp, y, m) {
-  let mk = y + '_' + m, s = monthStatuses[mk] || {};
-  // Build FULL status map for this employee (all days of month)
-  let days = getDays(y, m);
-  let empS = {};
-  for (let d = 1; d <= days; d++) {
-    let k = sKey(emp, d);
-    empS[k] = s[k] || '';
-  }
-  let ex = getExtra(emp, y, m);
-  let spKey = mk + '_' + emp;
-  let body = { fields: { Title: emp, Miesiac: String(m), Rok: y, Statusy: JSON.stringify({ statuses: empS, ot: ex }) } };
-  if (spItemIds[spKey]) await graphPatch('/sites/' + siteId + '/lists/' + listId + '/items/' + spItemIds[spKey], body);
-  else { let r = await graphPost('/sites/' + siteId + '/lists/' + listId + '/items', body); spItemIds[spKey] = r.id; }
-}
-
-async function deleteEmployeeData(empName) {
-  let toDelete = Object.keys(spItemIds).filter(k => k.endsWith('_' + empName) && k !== '__employees__');
-  for (let k of toDelete) { await graphDelete('/sites/' + siteId + '/lists/' + listId + '/items/' + spItemIds[k]); delete spItemIds[k]; }
-}
 
 function scheduleSave(emp) {
   setSaveDot('saving');
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    try { if (siteId) await saveMonthForEmployee(emp, viewYear, viewMonth); else saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+    try { await saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
     catch(e) { showToast('Błąd zapisu: ' + e.message); setSaveDot(''); }
   }, 800);
 }
@@ -812,8 +732,8 @@ function getDayClass(y,m,d) {
 function getGroupIdx(groupId) { return groups.findIndex(g => g.id === groupId); }
 function loadDemoData() {
   let now = new Date(); viewYear=now.getFullYear(); viewMonth=now.getMonth();
-  groups = [{id:'g1',name:'Magazyn'},{id:'g2',name:'Biuro'}];
-  employees = [{name:'Jan Kowalski',group:'g1'},{name:'Anna Nowak',group:'g1'},{name:'Piotr Wiśniewski',group:'g2'}];
+  groups = [{id:'g1',name:'I ZMIANA'}];
+  employees = [{name:'Jan Kowalski',group:'g1'}];
   monthStatuses = {}; renderTable(); renderGroupPanel();
 }
 
@@ -834,7 +754,7 @@ function renderGroupPanel() {
   list.querySelectorAll('input').forEach(inp => {
     inp.addEventListener('change', async function() {
       groups[+this.dataset.gi].name = this.value.trim() || groups[+this.dataset.gi].name;
-      if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+      await saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000);
       renderTable();
     });
   });
@@ -844,7 +764,7 @@ function renderGroupPanel() {
       if (!confirm('Usunąć grupę? Pracownicy zostaną bez grupy.')) return;
       groups.splice(gi, 1);
       employees.forEach(e => { if (e.group === gid) e.group = ''; });
-      if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+      await saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000);
       renderGroupPanel(); renderTable();
     });
   });
@@ -858,7 +778,7 @@ document.getElementById('groups-btn').addEventListener('click', () => {
 document.getElementById('add-group-btn').addEventListener('click', async () => {
   let newId = 'g' + Date.now();
   groups.push({ id: newId, name: 'Nowa grupa' });
-  if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+  await saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000);
   renderGroupPanel(); renderTable();
 });
 
@@ -932,7 +852,7 @@ function renderTable() {
     grpSel.dataset.ei = origIdx;
     grpSel.addEventListener('change', async function() {
       employees[+this.dataset.ei].group = this.value;
-      if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+      await saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000);
       renderTable();
     });
 
@@ -1123,7 +1043,7 @@ if ((dStatus === 'OBECNY' || dStatus === 'Home Office') && exInit.partial && exI
         spItemIds[k.replace('_' + oldName, '_' + newName)] = spItemIds[k]; delete spItemIds[k];
       });
       setSaveDot('saving');
-      if (siteId) { await saveEmployees(); await saveMonthForEmployee(newName, viewYear, viewMonth); }
+      await saveLocalData();
       setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000);
     });
 
@@ -1136,7 +1056,7 @@ if ((dStatus === 'OBECNY' || dStatus === 'Home Office') && exInit.partial && exI
         Object.keys(monthStatuses[mk]).filter(k => k.startsWith(empName + '||')).forEach(k => delete monthStatuses[mk][k]);
       });
       showLoading('Usuwanie...');
-      if (siteId) { await deleteEmployeeData(empName); await saveEmployees(); }
+      await saveLocalData();
       hideLoading(); renderTable();
     });
   }
@@ -1177,7 +1097,7 @@ document.getElementById('add-employee').addEventListener('click', async () => {
   renderTable();
   let inputs = document.querySelectorAll('.name-input');
   if (inputs.length) { let last = inputs[inputs.length-1]; last.focus(); last.select(); }
-  if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+  await saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000);
 });
 
 // ── XLSX export ────────────────────────────────────────────────
@@ -1272,13 +1192,13 @@ document.getElementById('import-file').addEventListener('change', async function
 
   showToast('Zaimportowano ' + added + ' pracowników ✓');
   renderTable();
-  if (siteId) { setSaveDot('saving'); await saveEmployees(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); } else { saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000); }
+  await saveLocalData(); setSaveDot('saved'); setTimeout(() => setSaveDot(''), 2000);
 });
 
 
 
 // ── Local login (bypasses Azure) ───────────────────────────────
-document.getElementById('local-login-btn').addEventListener('click', async function() {
+document.getElementById('local-login-btn').addEventListener('click', function() {
   let email = document.getElementById('local-email').value.trim();
   let pass  = document.getElementById('local-password').value;
   let err   = document.getElementById('local-error');
@@ -1289,30 +1209,20 @@ document.getElementById('local-login-btn').addEventListener('click', async funct
     err.style.display = 'block';
     return;
   }
-  let btn = document.getElementById('local-login-btn');
-  btn.textContent = 'Logowanie...'; btn.disabled = true;
-  try {
-    let clientId = await sbCheckLogin(email, pass);
-    if (!clientId) {
-      err.textContent = 'Nieprawidłowy e-mail lub hasło.';
-      err.style.display = 'block';
-      btn.textContent = 'Zaloguj się'; btn.disabled = false;
-      return;
-    }
-    SPEC_CLIENT_ID = clientId;
-    localStorage.setItem('secp-client-id', clientId);
-    localStorage.setItem('att-session', JSON.stringify({ email, clientId }));
-    document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    document.getElementById('user-info').textContent = email;
-    btn.textContent = 'Zaloguj się'; btn.disabled = false;
-    reapplyTheme();
-    loadLocalData();
-  } catch(e) {
-    err.textContent = 'Błąd połączenia.';
+  let validUser = CONFIG.extraLogins.find(u => u.email === email && u.password === pass);
+  if (!validUser) {
+    err.textContent = 'Nieprawidłowy e-mail lub hasło.';
     err.style.display = 'block';
-    btn.textContent = 'Zaloguj się'; btn.disabled = false;
+    return;
   }
+  // Logged in locally
+  account = { name: email, username: email, local: true };
+  localStorage.setItem('att-session', JSON.stringify({ email: email }));
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('user-info').textContent = email;
+  reapplyTheme();
+  loadLocalData();
 });
 
 document.getElementById('local-password').addEventListener('keydown', function(e) {
@@ -1331,9 +1241,7 @@ async function loadLocalData() {
       monthStatuses = data.monthStatuses || {};
       extraData = data.extraData || {};
     }
-  } catch(e) {
-    console.error('Load error:', e);
-  }
+  } catch(e) { console.error('Load error:', e); }
   hideLoading();
   let now = new Date(); viewYear = now.getFullYear(); viewMonth = now.getMonth();
   renderTable(); renderGroupPanel();
@@ -1351,11 +1259,6 @@ async function saveLocalData() {
 
 
 
-  } catch(e) {
-    // Fallback - use default config
-    console.log('Client config load failed, using default');
-  }
-}
 
 // ── Demo mode ─────────────────────────────────────────────────
 function isDemoUser() {
@@ -1414,8 +1317,6 @@ function reapplyTheme() {
   let urlParams = new URLSearchParams(window.location.search);
   let clientParam = urlParams.get('client');
   let autologinEmail = urlParams.get('autologin');
-
-  // ?client= w URL - załaduj bez logowania
   if (clientParam) {
     SPEC_CLIENT_ID = clientParam;
     localStorage.setItem('secp-client-id', clientParam);
@@ -1426,8 +1327,6 @@ function reapplyTheme() {
     loadLocalData();
     return;
   }
-
-  // Sprawdź sesję z Supabase
   let saved = localStorage.getItem('att-session');
   if (saved) {
     try {
