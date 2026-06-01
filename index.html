@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SPEC</title>
 <script>
+// Aplikuj motyw z localStorage (ustawiony przez spec_admin)
+(function(){
+  if(localStorage.getItem('spec-dark')==='1') document.body.classList.add('dark');
+})();
+
 const CONFIG = {
   clientId: "TWOJ_CLIENT_ID",
   tenantId: "TWOJ_TENANT_ID",
@@ -581,16 +586,7 @@ body.dark ::-webkit-scrollbar-thumb:hover { background:#2d3a55; }
     <button class="tb" id="add-employee">+ Pracownik</button>
     <button class="tb" id="import-btn">&#8679; Import</button>
     <input type="file" id="import-file" accept=".xlsx,.csv" style="display:none" />
-    <a href="dashboard.html" class="tb" style="text-decoration:none;display:inline-flex;align-items:center;gap:5px">📊 Dashboard</a>
     <button class="tb primary" id="export-btn">&#8595; XLSX</button>
-    <div class="dark-toggle-wrap" id="dark-toggle-wrap">
-      <span class="toggle-icon">☀️</span>
-      <button id="dark-toggle-btn" class="toggle-track" onclick="toggleDark()" title="Jasny / Ciemny">
-        <span id="dark-knob" class="toggle-knob"></span>
-      </button>
-      <span class="toggle-icon">🌙</span>
-    </div>
-    <button class="tb" id="logout-btn">Wyloguj</button>
   </div>
 
   <!-- Group manager -->
@@ -872,8 +868,8 @@ function getDayClass(y,m,d) {
 function getGroupIdx(groupId) { return groups.findIndex(g => g.id === groupId); }
 function loadDemoData() {
   let now = new Date(); viewYear=now.getFullYear(); viewMonth=now.getMonth();
-  groups = [{id:'g1',name:'Magazyn'},{id:'g2',name:'Biuro'}];
-  employees = [{name:'Jan Kowalski',group:'g1'},{name:'Anna Nowak',group:'g1'},{name:'Piotr Wiśniewski',group:'g2'}];
+  groups = [{id:'g1',name:'I ZMIANA'}];
+  employees = [{name:'Jan Kowalski',group:'g1'}];
   monthStatuses = {}; renderTable(); renderGroupPanel();
 }
 
@@ -1541,11 +1537,7 @@ function enforceDemoMode() {
 
 
 // ── Dark mode toggle ─────────────────────────────────────────
-function toggleDark() {
-  let isDark = document.body.classList.toggle('dark');
-  localStorage.setItem('spec-dark', isDark ? '1' : '0');
-  updateDarkUI(isDark);
-}
+
 function updateDarkUI(isDark) {
   let btn = document.getElementById('dark-toggle-btn');
   let knob = document.getElementById('dark-knob');

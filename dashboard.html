@@ -328,16 +328,8 @@ body.theme-candy .stat-badge.hours { background: #fdf4ff; color: #d946ef; }
   <div class="topbar">
     <h1>SPEC</h1>
     <span class="user-info" id="user-info"></span>
-    <a class="back-btn" href="index.html" onclick="return true;">&#8592; Lista obecności</a>
     <button class="tb" id="refresh-btn">&#8635; Odśwież</button>
-    <div class="theme-btn" data-theme="dark" title="Neon Dark"></div>
-      <div class="theme-btn" data-theme="brutalist" title="Brutalist"></div>
-      <div class="theme-btn" data-theme="aurora" title="Aurora"></div>
-      <div class="theme-btn" data-theme="coral" title="Coral Sunrise"></div>
-      <div class="theme-btn" data-theme="aqua" title="Aqua Mint"></div>
-      <div class="theme-btn" data-theme="candy" title="Candy Pop"></div>
     </div>
-    <button class="tb" id="logout-btn">Wyloguj</button>
   </div>
 
   <div id="dashboard-content">
@@ -896,7 +888,7 @@ document.addEventListener('click', e => {
   // Hide auth screen initially and check MSAL silently
   initMsal();
 })();
-// ── Auto-login: jeśli ?client= w URL - pomiń logowanie całkowicie
+// ── Auto-login: jeśli ?client= w URL - pomiń logowanie
 (function(){
   let urlParams = new URLSearchParams(window.location.search);
   let clientParam = urlParams.get('client');
@@ -945,7 +937,7 @@ function toggleDark(){
   localStorage.setItem('spec-dark', d?'1':'0');
 }
 if(localStorage.getItem('spec-dark')==='1') document.body.classList.add('dark');
-// ── Auto-login: jeśli ?client= w URL - pomiń logowanie całkowicie
+// ── Auto-login: jeśli ?client= w URL - pomiń logowanie
 (function(){
   let urlParams = new URLSearchParams(window.location.search);
   let clientParam = urlParams.get('client');
@@ -995,7 +987,7 @@ function toggleDashDark() {
     if (knob) knob.style.left = isDark ? '19px' : '3px';
   }, 0);
 })();
-// ── Auto-login: jeśli ?client= w URL - pomiń logowanie całkowicie
+// ── Auto-login: jeśli ?client= w URL - pomiń logowanie
 (function(){
   let urlParams = new URLSearchParams(window.location.search);
   let clientParam = urlParams.get('client');
