@@ -8,7 +8,6 @@
 // Supabase - patrz SB_URL poniżej
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.7.1/lib/msal-browser.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
 /* ── Paleta niebiesko-szara ── */
@@ -622,20 +621,6 @@ let extraData = {}; // { 'empName||y_m': { ot50, ot100 } }
 let spItemIds = {};
 let saveTimer = null;
 
-// ── MSAL ──────────────────────────────────────────────────────
-function initMsal() {
-  msalInstance = new msal.PublicClientApplication({
-    auth: { clientId: CONFIG.clientId, authority: 'https://login.microsoftonline.com/' + CONFIG.tenantId, redirectUri: CONFIG.redirectUri },
-    cache: { cacheLocation: 'sessionStorage' }
-  });
-  msalInstance.initialize().then(() => {
-    msalInstance.handleRedirectPromise().then(resp => {
-      if (resp) account = resp.account;
-      else { let a = msalInstance.getAllAccounts(); if (a.length) account = a[0]; }
-      if (account) startApp();
-    }).catch(e => showAuthError(e));
-  });
-}
 let _loginBtn = document.getElementById('login-btn'); if(_loginBtn) _loginBtn.addEventListener('click', () => msalInstance && msalInstance.loginRedirect({ scopes: SCOPES }));
 let _logoutBtn = document.getElementById('logout-btn'); if(_logoutBtn) _logoutBtn.addEventListener('click', () => {
   // Clear local session
@@ -646,45 +631,10 @@ let _logoutBtn = document.getElementById('logout-btn'); if(_logoutBtn) _logoutBt
   setTimeout(() => location.reload(), 300);
 });
 
-async function getToken() {
-  try { return (await msalInstance.acquireTokenSilent({ scopes: SCOPES, account })).accessToken; }
   catch { return (await msalInstance.acquireTokenPopup({ scopes: SCOPES })).accessToken; }
-}
-async function graphGet(url) {
-  let r = await fetch(GRAPH + url, { headers: { Authorization: 'Bearer ' + await getToken() } });
-  if (!r.ok) throw new Error(await r.text()); return r.json();
-}
-async function graphPost(url, body) {
-  let r = await fetch(GRAPH + url, { method: 'POST', headers: { Authorization: 'Bearer ' + await getToken(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!r.ok) throw new Error(await r.text()); return r.json();
-}
-async function graphPatch(url, body) {
-  let r = await fetch(GRAPH + url, { method: 'PATCH', headers: { Authorization: 'Bearer ' + await getToken(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!r.ok) throw new Error(await r.text()); return r.json();
-}
-async function graphDelete(url) {
-  await fetch(GRAPH + url, { method: 'DELETE', headers: { Authorization: 'Bearer ' + await getToken() } });
 }
 
 // ── Start ──────────────────────────────────────────────────────
-async function startApp() {
-  showLoading('Łączenie z SharePoint...');
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  document.getElementById('user-info').textContent = account.name || account.username;
-  try {
-    let siteUrl = CONFIG.sharePointSite.replace('https://', '');
-    let host = siteUrl.split('/')[0], path = siteUrl.split('/').slice(1).join('/');
-    let siteResp = path ? await graphGet('/sites/' + host + ':/' + path) : await graphGet('/sites/' + host + ':/');
-    siteId = siteResp.id;
-    let listsResp = await graphGet('/sites/' + siteId + '/lists?$top=200');
-    let found = listsResp.value.find(l => l.displayName === CONFIG.listName || l.name === CONFIG.listName);
-    if (!found) throw new Error('Nie znaleziono listy "' + CONFIG.listName + '"');
-    listId = found.id;
-    await loadFromSharePoint();
-    hideLoading();
-  } catch(e) { hideLoading(); showToast('Błąd: ' + e.message); loadDemoData(); }
-}
 
 // ── SharePoint data ────────────────────────────────────────────
 async function loadFromSharePoint() {
