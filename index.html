@@ -643,15 +643,6 @@ let saveTimer = null;
 
 
 
-document.getElementById('logout-btn').addEventListener('click', () => {
-  // Clear local session
-  // wylogowanie
-  // Also logout MSAL if active
-  try { msalInstance.logoutPopup().catch(() => {}); } catch(e) {}
-  setTimeout(() => location.reload(), 300);
-});
-
-
 // ── Start ──────────────────────────────────────────────────────
 
 // ── SharePoint data ────────────────────────────────────────────
