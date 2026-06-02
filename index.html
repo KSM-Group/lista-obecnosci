@@ -548,6 +548,8 @@ body.dark ::-webkit-scrollbar-thumb:hover { background:#2d3a55; }
       Zaloguj przez Microsoft 365
     </button>
     <p id="auth-error" style="color:#a4262c;font-size:12px;display:none;"></p>
+
+
     
   </div>
 </div>
@@ -614,7 +616,6 @@ let saveTimer = null;
 
 
 
-document.getElementById('login-btn').addEventListener('click', () => msalInstance && msalInstance.loginRedirect({ scopes: SCOPES }));
 document.getElementById('logout-btn').addEventListener('click', () => {
   // Clear local session
   localStorage.removeItem('att-session');
