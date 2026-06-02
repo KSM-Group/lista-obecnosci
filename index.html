@@ -4,6 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>SPEC</title>
+<script>
+// Detekcja ?client= w URL - musi być w <head> przed renderowaniem
+(function(){
+  if(localStorage.getItem('spec-dark')==='1') document.documentElement.classList.add('dark-init');
+  let p = new URLSearchParams(window.location.search);
+  window.__SPEC_HAS_CLIENT = !!p.get('client');
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
