@@ -618,8 +618,7 @@ let saveTimer = null;
 
 document.getElementById('logout-btn').addEventListener('click', () => {
   // Clear local session
-  localStorage.removeItem('att-session');
-  sessionStorage.clear();
+  // wylogowanie
   // Also logout MSAL if active
   try { msalInstance.logoutPopup().catch(() => {}); } catch(e) {}
   setTimeout(() => location.reload(), 300);
@@ -1192,31 +1191,33 @@ document.getElementById('import-file').addEventListener('change', async function
 
 
 // ── Local login (bypasses Azure) ───────────────────────────────
-document.getElementById('local-login-btn').addEventListener('click', function() {
+document.getElementById('local-login-btn').addEventListener('click', async function() {
   let email = document.getElementById('local-email').value.trim();
   let pass  = document.getElementById('local-password').value;
   let err   = document.getElementById('local-error');
   err.style.display = 'none';
-
-  if (!email || !pass) {
-    err.textContent = 'Wpisz e-mail i hasło.';
+  if (!email || !pass) { err.textContent = 'Wpisz e-mail i hasło.'; err.style.display = 'block'; return; }
+  this.textContent = 'Logowanie...'; this.disabled = true;
+  try {
+    let clientId = await sbCheckLogin(email, pass);
+    if (!clientId) {
+      err.textContent = 'Nieprawidłowy e-mail lub hasło.';
+      err.style.display = 'block';
+      this.textContent = 'Zaloguj się'; this.disabled = false;
+      return;
+    }
+    SPEC_CLIENT_ID = clientId;
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('user-info').textContent = email;
+    this.textContent = 'Zaloguj się'; this.disabled = false;
+    reapplyTheme();
+    loadLocalData();
+  } catch(e) {
+    err.textContent = 'Błąd połączenia.';
     err.style.display = 'block';
-    return;
+    this.textContent = 'Zaloguj się'; this.disabled = false;
   }
-  let validUser = CONFIG.extraLogins.find(u => u.email === email && u.password === pass);
-  if (!validUser) {
-    err.textContent = 'Nieprawidłowy e-mail lub hasło.';
-    err.style.display = 'block';
-    return;
-  }
-  // Logged in locally
-  account = { name: email, username: email, local: true };
-  localStorage.setItem('att-session', JSON.stringify({ email: email }));
-  document.getElementById('auth-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  document.getElementById('user-info').textContent = email;
-  reapplyTheme();
-  loadLocalData();
 });
 
 document.getElementById('local-password').addEventListener('keydown', function(e) {
@@ -1227,7 +1228,7 @@ document.getElementById('local-password').addEventListener('keydown', function(e
 async function loadLocalData() {
   showLoading('Ładowanie danych...');
   try {
-    let cId = SPEC_CLIENT_ID || localStorage.getItem('secp-client-id') || localStorage.getItem('secp-admin-client') || 'default';
+    let cId = SPEC_CLIENT_ID || 'default';
     let data = await sbGet(cId);
     if (data) {
       employees = (data.employees || []).map(e => typeof e === 'string' ? {name:e,group:''} : e);
@@ -1243,7 +1244,7 @@ async function loadLocalData() {
 
 async function saveLocalData() {
   try {
-    let cId = SPEC_CLIENT_ID || localStorage.getItem('secp-client-id') || localStorage.getItem('secp-admin-client') || 'default';
+    let cId = SPEC_CLIENT_ID || 'default';
     await sbSet(cId, { employees, groups, monthStatuses, extraData });
   } catch(e) { console.error('Save error:', e); }
 }
@@ -1254,12 +1255,7 @@ async function saveLocalData() {
 
 
 
-// ── Demo mode ─────────────────────────────────────────────────
-function isDemoUser() {
-  let sess = localStorage.getItem('att-session');
-  if (!sess) return false;
-  try { return JSON.parse(sess).email === 'test@test.pl'; } catch(e) { return false; }
-}
+
 
 function enforceDemoMode() {
   if (!isDemoUser()) return;
@@ -1313,28 +1309,12 @@ function reapplyTheme() {
   let autologinEmail = urlParams.get('autologin');
   if (clientParam) {
     SPEC_CLIENT_ID = clientParam;
-    localStorage.setItem('secp-client-id', clientParam);
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     document.getElementById('user-info').textContent = autologinEmail || '';
     reapplyTheme();
     loadLocalData();
     return;
-  }
-  let saved = localStorage.getItem('att-session');
-  if (saved) {
-    try {
-      let sess = JSON.parse(saved);
-      if (sess.email && sess.clientId) {
-        SPEC_CLIENT_ID = sess.clientId;
-        document.getElementById('auth-screen').style.display = 'none';
-        document.getElementById('app').style.display = 'block';
-        document.getElementById('user-info').textContent = sess.email;
-        reapplyTheme();
-        loadLocalData();
-        return;
-      }
-    } catch(e) {}
   }
 })();
 </script>
