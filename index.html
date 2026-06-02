@@ -88,7 +88,7 @@ body { font-family: "Segoe UI", system-ui, Arial, sans-serif; background: var(--
 
 /* ── Auth screen ── */
 #auth-screen {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  display: none; flex-direction: column; align-items: center; justify-content: center;
   min-height: 100vh; gap: 18px;
   background: linear-gradient(145deg, #dce6f5 0%, #eef1f6 60%, #e4ecf8 100%);
 }
@@ -521,6 +521,25 @@ body.dark ::-webkit-scrollbar-thumb:hover { background:#2d3a55; }
 </style>
 </head>
 <body>
+
+<script>
+// Natychmiast po body - decyduj o widoczności auth-screen vs app
+(function(){
+  if (window.__SPEC_HAS_CLIENT) {
+    // Jest ?client= - app będzie pokazany przez autologin
+    document.documentElement.style.setProperty('--init-auth', 'none');
+    document.documentElement.style.setProperty('--init-app', 'block');
+  } else {
+    // Brak ?client= - pokaż auth
+    document.documentElement.style.setProperty('--init-auth', 'flex');
+    document.documentElement.style.setProperty('--init-app', 'none');
+  }
+})();
+</script>
+<style>
+#auth-screen { display: var(--init-auth, flex) !important; }
+#app { display: var(--init-app, none) !important; }
+</style>
 
 <div id="loading" class="hidden"><div class="spinner"></div> <span id="loading-text">Ładowanie...</span></div>
 
@@ -1207,8 +1226,8 @@ document.getElementById('local-login-btn').addEventListener('click', async funct
       return;
     }
     SPEC_CLIENT_ID = clientId;
-    document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
+    document.documentElement.style.setProperty('--init-auth', 'none');
+    document.documentElement.style.setProperty('--init-app', 'block');
     document.getElementById('user-info').textContent = email;
     this.textContent = 'Zaloguj się'; this.disabled = false;
     reapplyTheme();
@@ -1309,8 +1328,8 @@ function reapplyTheme() {
   let autologinEmail = urlParams.get('autologin');
   if (clientParam) {
     SPEC_CLIENT_ID = clientParam;
-    document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
+    document.documentElement.style.setProperty('--init-auth', 'none');
+    document.documentElement.style.setProperty('--init-app', 'block');
     document.getElementById('user-info').textContent = autologinEmail || '';
     reapplyTheme();
     loadLocalData();
