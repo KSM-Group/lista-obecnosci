@@ -1332,6 +1332,8 @@ function reapplyTheme() {
     document.getElementById('user-info').textContent = autologinEmail || '';
     reapplyTheme();
     loadLocalData();
+    // Auto-refresh co 10s
+    setInterval(function() { if (SPEC_CLIENT_ID) loadLocalData(); }, 10000);
     return;
   }
 })();
